@@ -1,0 +1,17 @@
+backend:
+http://127.0.0.1:8000/docs
+
+-admin
+http://localhost:3000/auth/admin/signin
+http://localhost:3000/auth/admin/signup
+http://localhost:3000/admin/onboard
+http://localhost:3000/admin/requests
+
+-employee
+http://localhost:3000/auth/employee/signin 
+http://localhost:3000/employee/attendance
+http://localhost:3000/employee/request
+
+Running:
+backend-> python -m uvicorn backend.main:app --reload
+frontend-> npm run dev

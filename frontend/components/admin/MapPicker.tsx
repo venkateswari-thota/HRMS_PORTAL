@@ -43,8 +43,15 @@ function LocationHandler({ onSelect }: { onSelect: (lat: number, lng: number) =>
 }
 
 export default function MapPicker({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
+  // Fix: Force re-render on mount to avoid Leaflet node issues in Strict Mode
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    setKey(k => k + 1);
+  }, []);
+
   return (
-    <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}>
+    <MapContainer key={key} center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; OpenStreetMap'

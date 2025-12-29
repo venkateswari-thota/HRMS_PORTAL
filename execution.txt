@@ -13,5 +13,5 @@ http://localhost:3000/employee/attendance
 http://localhost:3000/employee/request
 
 Running:
-backend-> python -m uvicorn backend.main:app --reload
+HRMS_PORTAL -> python -m uvicorn backend.main:app --reload
 frontend-> npm run dev

@@ -1,11 +1,44 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import math
 from backend.models import Attendance, Employee, Request
 from typing import Optional
+from jose import jwt
+from backend.utils import SECRET_KEY, ALGORITHM
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
+
+# Helper Dependency
+async def get_current_emp_id(authorization: str = Header(...)):
+    try:
+        token = authorization.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        emp_id = payload.get("sub")
+        if not emp_id:
+             raise HTTPException(status_code=401, detail="Invalid Token")
+        return emp_id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@router.get("/me/info")
+async def get_my_info(emp_id: str = Depends(get_current_emp_id)):
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    return {
+        "emp_id": emp.emp_id,
+        "name": emp.name,
+        "email": emp.email,
+        "personal_email": emp.personal_email,
+        "work_lat": emp.work_lat,
+        "work_lng": emp.work_lng,
+        "geofence_radius": emp.geofence_radius,
+        "std_check_in": emp.std_check_in,
+        "std_check_out": emp.std_check_out,
+        # "face_photo_count": len(emp.face_photos) if emp.face_photos else 0
+    }
 
 # Haversine Formula for Distance logic
 def calculate_distance(lat1, lon1, lat2, lon2):

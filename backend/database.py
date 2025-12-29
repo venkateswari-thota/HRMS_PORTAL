@@ -8,7 +8,7 @@ from .models import Admin, Employee, Attendance, Request
 
 # MongoDB URL
 MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://venkateswari:venky12345@cluster0.iimbsjk.mongodb.net/")
-DB_NAME = "hrms_portal_main"
+DB_NAME = "hrms"
 
 async def init_db():
     client = AsyncIOMotorClient(MONGO_URL)

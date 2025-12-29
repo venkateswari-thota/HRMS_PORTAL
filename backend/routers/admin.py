@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from typing import List
 from backend.models import Employee, Admin
@@ -26,7 +26,7 @@ def generate_random_password(length=8):
     return ''.join(random.choice(chars) for _ in range(length))
 
 @router.post("/employee/register")
-async def register_employee(data: EmployeeCreate):
+async def register_employee(data: EmployeeCreate, background_tasks: BackgroundTasks):
     # Check existing
     if await Employee.find_one(Employee.email == data.email):
         raise HTTPException(status_code=400, detail="Employee email already exists")
@@ -37,7 +37,7 @@ async def register_employee(data: EmployeeCreate):
     
     # Generate EMP ID (Simple logic)
     count = await Employee.count()
-    emp_id = f"EMP{count + 1:03d}"
+    emp_id = f"PRAGEMP{count + 1:03d}"
 
     emp = Employee(
         emp_id=emp_id,
@@ -54,15 +54,14 @@ async def register_employee(data: EmployeeCreate):
     )
     await emp.create()
     
-    # Send Email to Personal Mail
-    email_sent = send_credentials_email(data.personal_email, emp_id, temp_password, data.name)
+    # Send Email to Personal Mail in Background
+    background_tasks.add_task(send_credentials_email, data.personal_email, emp_id, temp_password, data.name, data.email, data.std_check_in, data.std_check_out)
     
     return {
         "message": "Employee registered successfully",
         "emp_id": emp_id,
         "email": data.email,
-        "email_sent": email_sent,
-        # "temp_password": temp_password # Removed for security, sent via email
+        "email_sent": True # Assumed true for async
     }
 
 from backend.models import Request, Attendance

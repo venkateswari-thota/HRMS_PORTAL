@@ -56,4 +56,4 @@ async def employee_login(data: EmployeeLogin):
         data={"sub": emp.emp_id, "role": "employee", "name": emp.name},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    return {"access_token": access_token, "token_type": "bearer", "role": "employee"}
+    return {"access_token": access_token, "token_type": "bearer", "role": "employee", "name": emp.name}

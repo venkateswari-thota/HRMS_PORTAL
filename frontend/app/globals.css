@@ -35,3 +35,22 @@ body {
 .btn-primary {
   @apply w-full py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5;
 }
+
+/* Hide unwanted third-party widgets or extensions */
+[style*="position: fixed"][style*="bottom"][style*="left"],
+[class*="widget"][style*="position: fixed"],
+[id*="chat"][style*="position: fixed"],
+[id*="notification"][style*="position: fixed"] {
+  display: none !important;
+}
+
+/* Hide Next.js Development Indicator */
+nextjs-portal,
+[data-nextjs-dialog-overlay],
+[data-nextjs-toast],
+button[data-nextjs-errors-dialog-left-right-close-button] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

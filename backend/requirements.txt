@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn==0.34.0
+beanie==1.27.0
+motor==3.6.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+passlib[argon2]==1.7.4
+python-jose[cryptography]==3.3.0
+python-multipart==0.0.20
+boto3==1.35.76
+Pillow==11.0.0
+python-dotenv==1.0.1

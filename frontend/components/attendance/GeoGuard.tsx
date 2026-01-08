@@ -34,28 +34,53 @@ export default function GeoGuard({ targetLat, targetLng, radius, onStatusChange 
             return;
         }
 
+        // Add timeout for initial location
+        const timeoutId = setTimeout(() => {
+            if (status === "Locating...") {
+                setStatus("⏳ Getting GPS signal... (may take 10-30s)");
+            }
+        }, 5000);
+
         const watchId = navigator.geolocation.watchPosition(
             (pos) => {
-                const { latitude, longitude } = pos.coords;
+                clearTimeout(timeoutId);
+                const { latitude, longitude, accuracy } = pos.coords;
                 const d = getDistance(latitude, longitude, targetLat, targetLng);
                 setDist(d);
 
+                console.log(`📍 GPS: Lat=${latitude.toFixed(5)}, Lng=${longitude.toFixed(5)}, Accuracy=${accuracy.toFixed(0)}m, Distance=${d.toFixed(0)}m`);
+
                 if (d <= radius) {
-                    setStatus("Location Verified ✅");
+                    setStatus(`✅ Location Verified (${Math.round(d)}m from office)`);
                     onStatusChange(true, latitude, longitude);
                 } else {
-                    setStatus(`Outside Geofence (${Math.round(d)}m away) ❌`);
+                    setStatus(`❌ Outside Geofence (${Math.round(d)}m away, need ≤${radius}m)`);
                     onStatusChange(false, latitude, longitude);
                 }
             },
             (err) => {
-                setStatus("Location Access Denied ❌");
+                clearTimeout(timeoutId);
+                console.error('GPS Error:', err);
+                if (err.code === 1) {
+                    setStatus("❌ Location Access Denied - Please allow location access");
+                } else if (err.code === 2) {
+                    setStatus("❌ Location Unavailable - Check GPS/WiFi");
+                } else if (err.code === 3) {
+                    setStatus("⏳ GPS Timeout - Still trying...");
+                }
                 onStatusChange(false, 0, 0);
             },
-            { enableHighAccuracy: true }
+            {
+                enableHighAccuracy: true,
+                timeout: 30000,  // 30 second timeout
+                maximumAge: 10000  // Accept 10s old position
+            }
         );
 
-        return () => navigator.geolocation.clearWatch(watchId);
+        return () => {
+            clearTimeout(timeoutId);
+            navigator.geolocation.clearWatch(watchId);
+        };
     }, [targetLat, targetLng, radius]);
 
     return (

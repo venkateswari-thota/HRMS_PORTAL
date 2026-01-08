@@ -15,3 +15,8 @@ http://localhost:3000/employee/request
 Running:
 HRMS_PORTAL -> python -m uvicorn backend.main:app --reload
 frontend-> npm run dev
+(npm install face-api.js - for face matching)
+
+
+cand1@prag.in eMJEeT5t
+cand2@prag.in N09bjVTx

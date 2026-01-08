@@ -1,0 +1,330 @@
+'use client';
+import { useRef, useState, useEffect } from 'react';
+import * as faceapi from '@vladmandic/face-api';
+import { Camera, CameraOff, Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
+
+interface FaceCheckProps {
+    referenceDescriptors: string[] | null; // Array of base64 image URLs
+    onMatchSuccess: () => void;
+    onMatchFail: () => void;
+    employeeName: string;
+}
+
+export default function FaceCheck({
+    referenceDescriptors,
+    onMatchSuccess,
+    onMatchFail,
+    employeeName
+}: FaceCheckProps) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
+
+    const [isCameraActive, setIsCameraActive] = useState(false);
+    const [status, setStatus] = useState<string>('Loading face recognition models...');
+    const [isMatching, setIsMatching] = useState(false);
+    const [blinkDetected, setBlinkDetected] = useState(false);
+    const [faceMatched, setFaceMatched] = useState(false);
+    const [matchConfidence, setMatchConfidence] = useState<number>(0);
+
+    // New state for model loading and descriptor creation
+    const [modelsLoaded, setModelsLoaded] = useState(false);
+    const [descriptors, setDescriptors] = useState<Float32Array[]>([]);
+    const [loadingProgress, setLoadingProgress] = useState<string>('');
+
+    /**
+     * Start camera and begin face matching
+     */
+    const startCamera = async () => {
+        try {
+            setStatus('Starting camera...');
+
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 640 },
+                    height: { ideal: 480 },
+                    facingMode: 'user', // Front camera
+                },
+            });
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                streamRef.current = stream;
+                setIsCameraActive(true);
+                setStatus('👁️ Please blink your eyes naturally');
+
+                // Wait for video to be ready
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current?.play();
+                    startFaceDetection();
+                };
+            }
+        } catch (err) {
+            console.error('Camera error:', err);
+            setStatus('❌ Camera access denied. Please allow camera access.');
+        }
+    };
+
+    /**
+     * Stop camera and cleanup
+     */
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+        setIsCameraActive(false);
+        setIsMatching(false);
+        setBlinkDetected(false);
+        setFaceMatched(false);
+        setMatchConfidence(0);
+    };
+
+    /**
+     * Calculate Eye Aspect Ratio (EAR) for blink detection
+     */
+    const calculateEAR = (eye: faceapi.Point[]): number => {
+        // Vertical distances
+        const v1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+        const v2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+
+        // Horizontal distance
+        const h = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+
+        // EAR formula
+        return (v1 + v2) / (2 * h);
+    };
+
+    /**
+     * Detect blink using Eye Aspect Ratio
+     */
+    const detectBlink = (landmarks: faceapi.FaceLandmarks68): boolean => {
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+
+        const leftEAR = calculateEAR(leftEye);
+        const rightEAR = calculateEAR(rightEye);
+        const avgEAR = (leftEAR + rightEAR) / 2;
+
+        // EAR < 0.2 indicates closed eye (blink)
+        const BLINK_THRESHOLD = 0.2;
+        return avgEAR < BLINK_THRESHOLD;
+    };
+
+    /**
+     * Real-time face detection and matching loop
+     */
+    const startFaceDetection = async () => {
+        if (!videoRef.current || !canvasRef.current || !referenceDescriptors) {
+            return;
+        }
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+
+        // Set canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const processFrame = async () => {
+            if (!video || !canvas || !isCameraActive) return;
+
+            try {
+                // Detect face in current frame
+                const detection = await faceapi
+                    .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+
+                // Clear canvas
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+
+                if (!detection) {
+                    setStatus('👤 No face detected. Please face the camera.');
+                    setIsMatching(false);
+                    animationFrameRef.current = requestAnimationFrame(processFrame);
+                    return;
+                }
+
+                // Draw detection box
+                const resizedDetections = faceapi.resizeResults(detection, {
+                    width: canvas.width,
+                    height: canvas.height,
+                });
+                faceapi.draw.drawDetections(canvas, resizedDetections);
+                faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+
+                setIsMatching(true);
+
+                // Check for blink
+                const isBlinking = detectBlink(detection.landmarks);
+                if (isBlinking && !blinkDetected) {
+                    setBlinkDetected(true);
+                    setStatus('✅ Blink detected! Verifying face...');
+                    console.log('👁️ Blink detected!');
+                }
+
+                // Compare with reference descriptors
+                const distances = referenceDescriptors.descriptors.map(refDescriptor =>
+                    faceapi.euclideanDistance(detection.descriptor, refDescriptor)
+                );
+
+                const minDistance = Math.min(...distances);
+                const threshold = 0.65; // Increased from 0.6 for easier matching
+                const confidence = Math.max(0, (1 - minDistance) * 100);
+
+                console.log(`👤 Face detected | Distance: ${minDistance.toFixed(3)} | Confidence: ${confidence.toFixed(1)}% | Threshold: ${threshold}`);
+
+                setMatchConfidence(confidence);
+
+                // Check if match
+                if (minDistance < threshold) {
+                    setFaceMatched(true);
+                    console.log(`✅ Face matched! Distance ${minDistance.toFixed(3)} < ${threshold}`);
+
+                    if (blinkDetected) {
+                        setStatus(`✅ Face matched! Welcome ${employeeName}!`);
+                        console.log(`🎉 Success! Face matched AND blink detected`);
+
+                        // Success - enable check-in
+                        setTimeout(() => {
+                            stopCamera();
+                            onMatchSuccess();
+                        }, 1000);
+                        return;
+                    } else {
+                        setStatus(`👁️ Face detected (${confidence.toFixed(0)}%). Please blink your eyes.`);
+                        console.log(`⏳ Waiting for blink...`);
+                    }
+                } else {
+                    setStatus(`❌ Face not recognized (${confidence.toFixed(0)}%). Please try again.`);
+                    console.log(`❌ No match. Distance ${minDistance.toFixed(3)} >= ${threshold}`);
+                    setFaceMatched(false);
+                }
+
+            } catch (err) {
+                console.error('Detection error:', err);
+            }
+
+            // Continue loop
+            animationFrameRef.current = requestAnimationFrame(processFrame);
+        };
+
+        processFrame();
+    };
+
+    /**
+     * Cleanup on unmount
+     */
+    useEffect(() => {
+        return () => {
+            stopCamera();
+        };
+    }, []);
+
+    return (
+        <div className="space-y-4">
+            {/* Camera Feed */}
+            <div className="relative bg-gray-900 rounded-xl overflow-hidden aspect-video">
+                <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                />
+                <canvas
+                    ref={canvasRef}
+                    className="absolute top-0 left-0 w-full h-full"
+                />
+
+                {!isCameraActive && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800/50">
+                        <Camera className="w-16 h-16 text-gray-400" />
+                    </div>
+                )}
+            </div>
+
+            {/* Status Display */}
+            <div className={`
+        p-4 rounded-lg border-2 flex items-center gap-3
+        ${faceMatched && blinkDetected
+                    ? 'bg-green-50 border-green-500 text-green-700'
+                    : isMatching
+                        ? 'bg-blue-50 border-blue-500 text-blue-700'
+                        : 'bg-gray-50 border-gray-300 text-gray-700'
+                }
+      `}>
+                {faceMatched && blinkDetected ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                ) : isMatching ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                ) : (
+                    <Eye className="w-5 h-5 text-gray-500" />
+                )}
+                <p className="text-sm font-medium">{status}</p>
+            </div>
+
+            {/* Indicators */}
+            <div className="grid grid-cols-2 gap-3">
+                <div className={`
+          p-3 rounded-lg border text-center
+          ${blinkDetected
+                        ? 'bg-green-50 border-green-500'
+                        : 'bg-gray-50 border-gray-300'
+                    }
+        `}>
+                    <p className="text-xs text-gray-600 mb-1">Blink Detection</p>
+                    <p className={`text-sm font-bold ${blinkDetected ? 'text-green-600' : 'text-gray-400'}`}>
+                        {blinkDetected ? '✅ Detected' : '⏳ Waiting'}
+                    </p>
+                </div>
+
+                <div className={`
+          p-3 rounded-lg border text-center
+          ${faceMatched
+                        ? 'bg-green-50 border-green-500'
+                        : 'bg-gray-50 border-gray-300'
+                    }
+        `}>
+                    <p className="text-xs text-gray-600 mb-1">Face Match</p>
+                    <p className={`text-sm font-bold ${faceMatched ? 'text-green-600' : 'text-gray-400'}`}>
+                        {faceMatched ? `✅ ${matchConfidence.toFixed(0)}%` : '⏳ Checking'}
+                    </p>
+                </div>
+            </div>
+
+            {/* Camera Control */}
+            <button
+                onClick={isCameraActive ? stopCamera : startCamera}
+                disabled={!referenceDescriptors}
+                className={`
+          w-full py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2
+          ${isCameraActive
+                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-gray-300 disabled:cursor-not-allowed'
+                    }
+        `}
+            >
+                {isCameraActive ? (
+                    <>
+                        <CameraOff className="w-5 h-5" />
+                        Stop Camera
+                    </>
+                ) : (
+                    <>
+                        <Camera className="w-5 h-5" />
+                        Start Camera
+                    </>
+                )}
+            </button>
+        </div>
+    );
+}

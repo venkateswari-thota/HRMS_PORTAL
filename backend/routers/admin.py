@@ -131,13 +131,15 @@ async def register_employee(
     await emp.create()
     
     # Send credentials email in background
-    login_hours = f"{std_check_in} - {std_check_out}"
     background_tasks.add_task(
         send_credentials_email,
+        to_email=personal_email,
+        emp_id=emp_id,
+        password=temp_password,
         name=name,
         org_email=email,
-        password=temp_password,
-        login_hours=login_hours
+        check_in=std_check_in,
+        check_out=std_check_out
     )
     
     return {

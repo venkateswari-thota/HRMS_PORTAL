@@ -29,6 +29,8 @@ export default function EmployeeSignIn() {
             const res = await apiRequest('/auth/employee/login', 'POST', { email, password });
             localStorage.setItem('emp_token', res.access_token);
             localStorage.setItem('emp_name', res.name);
+            localStorage.setItem('emp_id', res.emp_id);
+            sessionStorage.clear(); // Clear any stale face data or failure states
             router.push('/employee/home');
         } catch (err: any) {
             setError(err.message || "Login Failed");

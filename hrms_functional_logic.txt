@@ -1,0 +1,143 @@
+# HRMS Functional Logic & Database Report
+
+This document outlines the detailed operational logic of the HRMS Portal, specifically regarding Attendance marking, Exception Handing (Failures), and the Database Schema.
+
+================================================================================
+1. ATTENDANCE WORKFLOW (SIGN-IN / SIGN-OUT)
+================================================================================
+
+The system enforces a strict verification process for every attendance action.
+Two conditions must be met for a successful "Standard Check-In":
+   A. **Face Verification:** The user's face must match the registered profile photo (Liveness Check).
+   B. **Location Verification:** The user must be within the defined Geofence (e.g., 200 meters) of the Office Coordinates.
+
+### 1.1 The "Success" Scenario
+If **BOTH** Face and Location match:
+- Action: The system automatically marks the attendance.
+- Database Update: A record is created in the `attendance` collection.
+- Status: Marked as "Present" with the precise timestamp.
+- User Feedback: "Attendance Marked Successfully."
+
+---
+
+================================================================================
+2. EXCEPTION HANDLING (THE 3 FAILURE SCENARIOS)
+================================================================================
+
+If validation fails, the system immediately redirects the user to the **Sign-In Request Page**. There are 3 specific reasons for this redirection:
+
+### Reason A: Location Failure (Geo-Fencing Mismatch)
+- **Condition:** Face Matches ✅ BUT User is **Outside** the Office ❌.
+- **Process:**
+  1. The direct check-in is blocked.
+  2. The user is redirected to the "Exception Request" screen.
+  3. The system captures the user's **current invalid coordinates** as proof.
+  4. User submits a reason (e.g., "Client Visit").
+
+### Reason B: Face Failure (Identity Mismatch)
+- **Condition:** User is at Office ✅ BUT Face **Does Not Match** ❌.
+- **Process:**
+  1. The direct check-in is blocked.
+  2. The user is redirected to the "Exception Request" screen.
+  3. The system captures a **snapshot of the user's face** as proof.
+  4. User submits a reason (e.g., "Camera Issue" or "New Look").
+
+### Reason C: Both Failed (Critical Mismatch)
+- **Condition:** User is **Outside** Office ❌ AND Face **Does Not Match** ❌.
+- **Process:**
+  1. The direct check-in is blocked.
+  2. The user is redirected to the "Exception Request" screen.
+  3. The system captures **BOTH** the wrong coordinates AND the face snapshot.
+  4. This is flagged as a high-priority exception for Admin review.
+
+*(In all 3 cases, a record is created in the `requests` collection instead of `attendance`.)*
+
+---
+
+================================================================================
+3. ADMIN REQUEST PROCESSING (APPROVAL LOGIC)
+================================================================================
+
+When an Admin clicks "APPROVE" on a Request, the system executes slightly different logic depending on whether it is a Sign-In or Sign-Out request.
+
+### A. Approving a "CHECK_IN" Request
+The goal is to credit the employee for the start of the day.
+
+**Logic:**
+1.  **Check for Record:** Does an attendance log work for today?
+2.  **If Exists:** Update the `check_in_time` to the **Standard Shift Start Time** (e.g., 09:00 AM).
+3.  **If New:** Create a NEW record with `check_in_time` = **Standard Shift Start Time**.
+    *   *Result:* Employee gets full credit for the morning.
+
+### B. Approving a "CHECK_OUT" Request
+The goal is to credit the employee for the end of the day and calculate total hours.
+
+**Logic:**
+1.  **Validation:** The system looks for an existing "Check-In" record for that day. (You cannot sign out if you never signed in).
+2.  **Update Time:** It updates the `last_out_time` to the **Standard Shift End Time** (e.g., 06:00 PM).
+3.  **Calculate Hours:**
+    *   The system takes the `last_in_time` (from the morning) and the new `last_out_time`.
+    *   Formula: `Worked Hours = Standard End Time - Actual Start Time`.
+4.  **Save:** The record is saved with the newly calculated `worked_hours`.
+
+---
+
+================================================================================
+4. ADMIN DASHBOARD INTERACTIVITY (PROOF VERIFICATION)
+================================================================================
+
+The Admin Dashboard provides interactive tools to verify the proofs submitted with requests.
+
+### A. Location Map Logic
+When an employee claims "Location Error," the admin needs to see exactly where they were.
+- **Feature:** "Coordinates (Click for Maps)"
+- **Action:** Clicking the coordinates (e.g., `12.9716, 77.5946`) **automatically opens Google Maps** in a new browser tab.
+- **Purpose:** Allows the admin to visually confirm if the employee was actually near the office or at a client site.
+
+### B. Image Proof Handling
+When an employee claims "Face Error," the admin receives a low-quality thumbnail.
+- **Feautre:** "Maximize / Minimize" Modal.
+- **Action:** Clicking the small face image opens a **Full-Screen Lightbox (Big Screen)**.
+- **Controls:**
+    - **Maximize:** Click image to zoom in fully for detail inspection.
+    - **Minimize:** Click "CLOSE [X]" or the background to return to the dashboard.
+- **Purpose:** Ensures no false rejections due to small thumbnail visibility.
+
+---
+
+================================================================================
+5. DATABASE COLLECTION STRUCTURE (MONGODB)
+================================================================================
+
+The system uses 5 core collections in the MongoDB database to manage this flow.
+
+### 1. `employees` Collection
+Stores the profile and security data for every staff member.
+- `emp_id`: Unique ID (e.g., EMP01).
+- `face_photos`: Vector data or S3 links for face recognition.
+- `work_lat` / `work_lng`: The assigned office coordinates for that specific employee.
+- `geofence_radius`: Allowed distance (e.g., 200m).
+- `std_check_in` / `std_check_out`: The standard shift times.
+
+### 2. `attendance` Collection
+Stores the **Official** daily records. Only successful or Admin-approved entries go here.
+- `last_in_time`: Most recent check-in timestamp.
+- `last_out_time`: Most recent check-out timestamp.
+- `worked_hours`: Auto-calculated duration.
+- `status`: "Present", "Absent", "Late", "EXCEPTION_APPROVED".
+
+### 3. `requests` Collection (The Holding Area)
+Stores temporary data when validation fails (The 3 Failure Scenarios).
+- `type`: "CHECK_IN" or "CHECK_OUT".
+- `location_failure`: Boolean Flag (True/False).
+- `face_failure`: Boolean Flag (True/False).
+- `current_location_coordinates`: Proof of location failure.
+- `face_image`: Proof of face failure (URL).
+
+### 4. `approved` Collection
+Archive of all requests that were manually overridden by an Admin.
+- `approved_at`: Timestamp of admin action.
+- `original_request_id`: Link to the logic.
+
+### 5. `admins` Collection
+Credentials for the Dashboard access.

@@ -3,9 +3,9 @@ import { useRef, useState, useEffect } from 'react';
 import { Camera, CameraOff, Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
 
 interface FaceCheckProps {
-    referenceDescriptors: string[] | null; // Not used anymore - backend loads from S3
-    onMatchSuccess: () => void;
-    onMatchFail: () => void;
+    referenceDescriptors: string[] | null;
+    onMatchSuccess: (image?: string) => void;
+    onMatchFail: (image?: string) => void;
     employeeName: string;
 }
 
@@ -96,7 +96,7 @@ export default function FaceCheck({
 
             // Send to backend
             const token = localStorage.getItem('emp_token');
-            const response = await fetch('http://localhost:8000/attendance/match-face', {
+            const response = await fetch('/api/attendance/match-face', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ export default function FaceCheck({
 
                 // Wait a moment to show success, then call success callback
                 setTimeout(() => {
-                    onMatchSuccess();
+                    onMatchSuccess(base64Image);
                 }, 1500);
             } else {
                 setFaceMatched(false);
@@ -137,7 +137,7 @@ export default function FaceCheck({
 
                 // Call failure callback after showing error
                 setTimeout(() => {
-                    onMatchFail();
+                    onMatchFail(base64Image);
                 }, 2000);
             }
 
@@ -147,7 +147,7 @@ export default function FaceCheck({
             setFaceMatched(false);
 
             setTimeout(() => {
-                onMatchFail();
+                onMatchFail(); // No image in case of exception before capture
             }, 2000);
         } finally {
             setIsMatching(false);
@@ -210,7 +210,7 @@ export default function FaceCheck({
                 {!isCameraActive ? (
                     <button
                         onClick={startCamera}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
                     >
                         <Camera className="w-5 h-5" />
                         Start Camera
@@ -219,13 +219,18 @@ export default function FaceCheck({
                     <>
                         <button
                             onClick={captureAndMatch}
-                            disabled={isMatching}
-                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                            disabled={isMatching || !referenceDescriptors}
+                            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
                         >
                             {isMatching ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                     Verifying...
+                                </>
+                            ) : !referenceDescriptors ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    Syncing Identity...
                                 </>
                             ) : (
                                 <>
@@ -238,7 +243,7 @@ export default function FaceCheck({
                         <button
                             onClick={stopCamera}
                             disabled={isMatching}
-                            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
+                            className="bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
                         >
                             <CameraOff className="w-5 h-5" />
                             Stop

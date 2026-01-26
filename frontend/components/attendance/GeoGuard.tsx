@@ -20,35 +20,60 @@ interface GeoGuardProps {
     targetLat: number;
     targetLng: number;
     radius: number;
+    active: boolean;
     onStatusChange: (isValid: boolean, userLat: number, userLng: number) => void;
 }
 
-export default function GeoGuard({ targetLat, targetLng, radius, onStatusChange }: GeoGuardProps) {
-    const [status, setStatus] = useState("Locating...");
+export default function GeoGuard({ targetLat, targetLng, radius, active, onStatusChange }: GeoGuardProps) {
+    const [status, setStatus] = useState("Waiting to start location check...");
     const [dist, setDist] = useState<number | null>(null);
 
     useEffect(() => {
+        if (!active) {
+            setStatus("Ready to check location");
+            return;
+        }
+
         if (!navigator.geolocation) {
             setStatus("Geolocation not supported");
             onStatusChange(false, 0, 0);
             return;
         }
 
-        // Add timeout for initial location
-        const timeoutId = setTimeout(() => {
+        setStatus("Locating...");
+
+        let watchId: number;
+
+        // Absolute 60s timeout to prevent infinite manual waiting
+        const absoluteTimeoutId = setTimeout(() => {
+            console.warn("🧭 GeoGuard: Absolute 60s timeout reached.");
+            setStatus("❌ Location Timeout - Calibration took too long. Please try again or use the request link.");
+            onStatusChange(false, 0, 0);
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        }, 60000);
+
+        // Add timeout for initial location feedback
+        const feedbackTimeoutId = setTimeout(() => {
             if (status === "Locating...") {
                 setStatus("⏳ Getting GPS signal... (may take 10-30s)");
             }
         }, 5000);
 
-        const watchId = navigator.geolocation.watchPosition(
+        watchId = navigator.geolocation.watchPosition(
             (pos) => {
-                clearTimeout(timeoutId);
+                clearTimeout(feedbackTimeoutId);
+                clearTimeout(absoluteTimeoutId);
                 const { latitude, longitude, accuracy } = pos.coords;
                 const d = getDistance(latitude, longitude, targetLat, targetLng);
                 setDist(d);
 
                 console.log(`📍 GPS: Lat=${latitude.toFixed(5)}, Lng=${longitude.toFixed(5)}, Accuracy=${accuracy.toFixed(0)}m, Distance=${d.toFixed(0)}m`);
+
+                // Warn if accuracy is too low (e.g. > 100 meters)
+                if (accuracy > 100) {
+                    setStatus(`⚠️ Low GPS Accuracy (${Math.round(accuracy)}m). Move outdoors.`);
+                    // Still allow update but warn user
+                }
 
                 if (d <= radius) {
                     setStatus(`✅ Location Verified (${Math.round(d)}m from office)`);
@@ -59,29 +84,36 @@ export default function GeoGuard({ targetLat, targetLng, radius, onStatusChange 
                 }
             },
             (err) => {
-                clearTimeout(timeoutId);
+                clearTimeout(feedbackTimeoutId);
+                // We keep the absolute timeout running if it's just a transient error like code 3 (timeout)
+                if (err.code !== 3) {
+                    clearTimeout(absoluteTimeoutId);
+                }
+
                 console.error('GPS Error:', err);
                 if (err.code === 1) {
                     setStatus("❌ Location Access Denied - Please allow location access");
                 } else if (err.code === 2) {
                     setStatus("❌ Location Unavailable - Check GPS/WiFi");
                 } else if (err.code === 3) {
-                    setStatus("⏳ GPS Timeout - Still trying...");
+                    setStatus("⏳ GPS Signal Weak... still trying...");
+                    return; // Don't trigger failure yet, let absolute timeout handle it
                 }
                 onStatusChange(false, 0, 0);
             },
             {
                 enableHighAccuracy: true,
-                timeout: 30000,  // 30 second timeout
-                maximumAge: 10000  // Accept 10s old position
+                timeout: 30000,
+                maximumAge: 0 // Force fresh GPS reading
             }
         );
 
         return () => {
-            clearTimeout(timeoutId);
-            navigator.geolocation.clearWatch(watchId);
+            clearTimeout(feedbackTimeoutId);
+            clearTimeout(absoluteTimeoutId);
+            if (watchId) navigator.geolocation.clearWatch(watchId);
         };
-    }, [targetLat, targetLng, radius]);
+    }, [targetLat, targetLng, radius, active, onStatusChange]);
 
     return (
         <div className={`p-2 rounded text-xs font-bold font-mono text-center ${dist && dist <= radius ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>

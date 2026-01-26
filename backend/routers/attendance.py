@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, BackgroundTasks
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import math
-from backend.models import Attendance, Employee, Request
+from backend.models import Attendance, Employee, Request, Admin
+from backend.email_utils import send_attendance_request_email
 from typing import Optional
 from jose import jwt
 from backend.utils import SECRET_KEY, ALGORITHM
@@ -287,6 +288,7 @@ async def check_in(data: CheckInPayload, emp_id: str = Depends(get_current_emp_i
 
     # Record Attendance
     today = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now()
     existing = await Attendance.find_one(Attendance.emp_id == emp.emp_id, Attendance.date == today)
     
     if existing and existing.check_in_time:
@@ -296,56 +298,142 @@ async def check_in(data: CheckInPayload, emp_id: str = Depends(get_current_emp_i
         record = Attendance(
             emp_id=emp.emp_id, 
             date=today, 
-            check_in_time=datetime.now(), 
+            check_in_time=current_time,
+            last_in_time=current_time,  # Set last_in_time
             status="PRESENT" # Logic for Late can go here
         )
         await record.create()
     else:
         # Update existing (if somehow created without check-in)
-        existing.check_in_time = datetime.now()
+        existing.check_in_time = current_time
+        existing.last_in_time = current_time  # Set last_in_time
+        existing.last_out_time = None         # Reset session
+        existing.worked_hours = None          # Reset session
         await existing.save()
 
     return {"message": "Check-in Successful"}
 
 @router.post("/check-out")
-async def check_out(data: CheckInPayload):
-    emp = await Employee.find_one(Employee.emp_id == data.emp_id)
+async def check_out(data: CheckInPayload, emp_id: str = Depends(get_current_emp_id)):
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
     if not emp:
          raise HTTPException(status_code=404, detail="Employee not found")
     
-    # Verify Location (Check-out also requires location usually? User said "Check IN and CHECK OUT Date & Time & Location")
+    # Verify Location
     dist = calculate_distance(data.lat, data.lng, emp.work_lat, emp.work_lng)
     if dist > emp.geofence_radius:
         raise HTTPException(status_code=403, detail="Location Violation during Check-out.")
 
     today = datetime.now().strftime("%Y-%m-%d")
+    current_time = datetime.now()
     record = await Attendance.find_one(Attendance.emp_id == emp.emp_id, Attendance.date == today)
     
-    if not record or not record.check_in_time:
+    if not record or not record.last_in_time:
         raise HTTPException(status_code=400, detail="Cannot Check-out without Check-in")
         
-    record.check_out_time = datetime.now()
+    record.last_out_time = current_time  # Always track last out for session
+    
+    # Calculate worked hours using last_in_time and last_out_time
+    # Fallback to check_in_time if last_in_time is missing (for older records)
+    start_time = record.last_in_time or record.check_in_time
+    if start_time and record.last_out_time:
+        diff = record.last_out_time - start_time
+        seconds = diff.total_seconds()
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        secs = int(seconds % 60)
+        record.worked_hours = f"{hours}:{minutes:02d}:{secs:02d}"
+    
     await record.save()
     
     return {"message": "Check-out Successful"}
 
+# History Endpoint for Log Page
+class HistoryPayload(BaseModel):
+    from_date: str
+    to_date: str
+
+@router.post("/history")
+async def get_attendance_history(data: HistoryPayload, emp_id: str = Depends(get_current_emp_id)):
+    # Fetch records between dates
+    # Since dates are strings YYYY-MM-DD, we can comparing lexicographically or filter
+    # For prototype, we'll fetch all and filter in python if needed or assume query
+    print(f"DEBUG: Fetching history for {emp_id} from {data.from_date} to {data.to_date}")
+    records = await Attendance.find(
+        Attendance.emp_id == emp_id,
+        Attendance.date >= data.from_date,
+        Attendance.date <= data.to_date
+    ).sort("-date").to_list()
+    print(f"DEBUG: Found {len(records)} records for {emp_id}")
+    
+    # Format for UI
+    logs = []
+    for r in records:
+        # Fallback logic for older records missing session fields
+        effective_in = r.last_in_time or r.check_in_time
+        effective_out = r.last_out_time
+        
+        cin = r.check_in_time.strftime("%H:%M:%S") if r.check_in_time else "-"
+        last_in = effective_in.strftime("%H:%M:%S") if effective_in else "-"
+        last_out = effective_out.strftime("%H:%M:%S") if effective_out else "-"
+        
+        logs.append({
+            "date": datetime.strptime(r.date, "%Y-%m-%d").strftime("%B %d, %Y"),
+            "in_time": cin,
+            "last_in": last_in,
+            "last_out": last_out,
+            "worked_hours": r.worked_hours if r.worked_hours else "-"
+        })
+        
+    return logs
+
 class RequestPayload(BaseModel):
-    emp_id: str
     type: str # IN or OUT
     reason: str
     lat: float
     lng: float
+    location_failure: bool = False
+    face_failure: bool = False
+    current_location_coordinates: Optional[str] = None
+    face_image: Optional[str] = None
 
 @router.post("/request")
-async def submit_request(data: RequestPayload):
+async def submit_request(data: RequestPayload, background_tasks: BackgroundTasks, emp_id: str = Depends(get_current_emp_id)):
+    print(f"DEBUG: Processing {data.type} request for {emp_id}")
+    # Create Request
     req = Request(
-        emp_id=data.emp_id,
+        emp_id=emp_id,
         type=data.type,
         reason=data.reason,
         timestamp=datetime.now(),
         location_lat=data.lat,
         location_lng=data.lng,
+        location_failure=data.location_failure,
+        face_failure=data.face_failure,
+        current_location_coordinates=data.current_location_coordinates,
+        face_image=data.face_image,
         status="PENDING"
     )
     await req.create()
+    print(f"✅ Request created for {emp_id} with ID: {req.id}")
+    
+    # Send Email to Admin in Background
+    admin = await Admin.find_one()
+    admin_email = admin.email if admin else "admin@pragyatmika.com" 
+    
+    # Get Employee details for email
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
+    emp_name = emp.name if emp else "Unknown Employee"
+
+    background_tasks.add_task(
+        send_attendance_request_email,
+        emp_name=emp_name,
+        admin_email=admin_email,
+        emp_id=emp_id,
+        type=data.type,
+        reason=data.reason,
+        lat=data.lat,
+        lng=data.lng
+    )
+    
     return {"message": "Request Submitted to Admin"}

@@ -12,7 +12,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-from .routers import auth, admin, attendance, upload
+from .routers import auth, admin, attendance, upload, leave
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -20,6 +20,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(attendance.router)
 app.include_router(upload.router)
+app.include_router(leave.router)
 
 # Mount Static for "Cloud" Storage Simulation
 os.makedirs("backend/static", exist_ok=True)

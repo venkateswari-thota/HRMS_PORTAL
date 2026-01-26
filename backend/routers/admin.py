@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File, Form
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
 from typing import List
-from backend.models import Employee, Admin
+from backend.models import Employee, Admin, Request, Attendance, Approved
 from backend.utils import create_access_token, get_password_hash
 from backend.s3_service import S3Service
 import random
@@ -162,14 +163,21 @@ async def list_employees():
         }
         for emp in employees
     ]
-from backend.models import Request, Attendance
-from datetime import datetime
-
 @router.get("/requests")
-async def get_pending_requests():
-    # Return all Pending
-    reqs = await Request.find(Request.status == "PENDING").to_list()
-    return reqs
+async def get_all_requests():
+    """
+    Return ALL requests (PENDING, APPROVED, REJECTED)
+    """
+    reqs = await Request.find().to_list()
+    print(f"📊 DEBUG: Found {len(reqs)} total requests in DB")
+    
+    # Manually serialize to avoid ObjectId issues
+    results = []
+    for r in reqs:
+        d = r.dict()
+        d["id"] = str(r.id)
+        results.append(d)
+    return results
 
 class ApprovalPayload(BaseModel):
     request_id: str
@@ -177,42 +185,125 @@ class ApprovalPayload(BaseModel):
 
 @router.post("/requests/review")
 async def review_request(data: ApprovalPayload):
-    from bson import ObjectId
-    req = await Request.get(data.request_id) # Beanie uses Pydantic ObjectId usually, but let's see
+    req = await Request.get(data.request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
     
+    if req.status != "PENDING":
+        raise HTTPException(status_code=400, detail="Request already processed")
+    
     if data.action == "REJECT":
-        req.status = "REJECTED"
-        await req.save()
+        # Just delete rejected requests
+        await req.delete()
         return {"message": "Request Rejected"}
 
     if data.action == "APPROVE":
-        req.status = "APPROVED"
-        await req.save()
+        # Get employee details
+        emp = await Employee.find_one(Employee.emp_id == req.emp_id)
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
         
-        # Mark Attendance
-        today = req.timestamp.strftime("%Y-%m-%d")
-        existing = await Attendance.find_one(Attendance.emp_id == req.emp_id, Attendance.date == today)
-
+        # Get the date from request timestamp
+        request_date = req.timestamp.strftime("%Y-%m-%d")
+        
         if req.type == "CHECK_IN":
-            if not existing:
-                att = Attendance(
-                    emp_id=req.emp_id,
-                    date=today,
-                    check_in_time=req.timestamp,
-                    status="PRESENT (APPROVED)"
-                )
-                await att.create()
+            # Create attendance record with standard check-in time
+            std_time_str = f"{request_date} {emp.std_check_in}"
+            std_check_in_time = datetime.strptime(std_time_str, "%Y-%m-%d %H:%M")
+            
+            # Check if attendance already exists
+            existing = await Attendance.find_one(
+                Attendance.emp_id == req.emp_id,
+                Attendance.date == request_date
+            )
+            
+            if existing:
+                # Update existing record and reset session
+                existing.check_in_time = std_check_in_time
+                existing.last_in_time = std_check_in_time
+                existing.last_out_time = None
+                existing.worked_hours = None
+                existing.status = "EXCEPTION_APPROVED"
+                await existing.save()
             else:
-                 existing.check_in_time = req.timestamp
-                 await existing.save()
+                attendance = Attendance(
+                    emp_id=req.emp_id,
+                    date=request_date,
+                    check_in_time=std_check_in_time,
+                    last_in_time=std_check_in_time,
+                    last_out_time=None,
+                    worked_hours=None,
+                    status="EXCEPTION_APPROVED"
+                )
+                await attendance.create()
+        
         elif req.type == "CHECK_OUT":
-             if existing:
-                 existing.check_out_time = req.timestamp
-                 await existing.save()
-             else:
-                 # Check out without check in? 
-                 pass 
+            # Find existing attendance record
+            attendance = await Attendance.find_one(
+                Attendance.emp_id == req.emp_id,
+                Attendance.date == request_date
+            )
+            
+            if not attendance:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No check-in record found for this date. Cannot approve check-out."
+                )
+            
+            # Parse std_check_out time
+            std_time_str = f"{request_date} {emp.std_check_out}"
+            std_check_out_time = datetime.strptime(std_time_str, "%Y-%m-%d %H:%M")
+            
+            # Update checkout times
+            attendance.last_out_time = std_check_out_time
+            
+            # Calculate worked hours using last_in_time and last_out_time
+            if attendance.last_in_time and attendance.last_out_time:
+                diff = attendance.last_out_time - attendance.last_in_time
+                seconds = diff.total_seconds()
+                hours = int(seconds // 3600)
+                minutes = int((seconds % 3600) // 60)
+                secs = int(seconds % 60)
+                attendance.worked_hours = f"{hours}:{minutes:02d}:{secs:02d}"
+            
+            await attendance.save()
+        
+        # Move to approved collection
+        approved = Approved(
+            emp_id=req.emp_id,
+            type=req.type,
+            reason=req.reason,
+            timestamp=req.timestamp,
+            approved_at=datetime.now(),
+            location_lat=req.location_lat,
+            location_lng=req.location_lng,
+            location_failure=req.location_failure,
+            face_failure=req.face_failure,
+            current_location_coordinates=req.current_location_coordinates,
+            face_image=req.face_image, 
+            status="APPROVED"
+        )
+        await approved.create()
+        
+        # Delete from requests collection
+        await req.delete()
+        
+        return {"message": "Request Approved & Moved to Approved Collection"}
+    
+    raise HTTPException(status_code=400, detail="Invalid action")
 
-        return {"message": "Request Approved & Attendance Marked"}
+@router.get("/approved")
+async def get_approved_requests():
+    """Get all approved requests from approved collection"""
+    approved = await Approved.find().sort("-approved_at").to_list()
+    print(f"✅ DEBUG: Found {len(approved)} approved requests in DB")
+    
+    # Manually serialize to avoid ObjectId issues
+    results = []
+    for a in approved:
+        d = a.dict()
+        d["id"] = str(a.id)
+        results.append(d)
+    return results
+
+

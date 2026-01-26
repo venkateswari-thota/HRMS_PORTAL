@@ -48,3 +48,9 @@ Thumbs.db
 
 # Project specific
 execution.txt
+*.zip
+htms-deploy/
+clean-source-code/
+hrms-deploy/
+*.pyc
+**/__pycache__/

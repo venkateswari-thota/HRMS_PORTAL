@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { apiRequest } from '@/lib/api';
 import {
     Home,
     CalendarCheck,
@@ -21,6 +22,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     const pathname = usePathname();
     const router = useRouter();
     const [isAttendanceOpen, setIsAttendanceOpen] = useState(true);
+    const [isLeaveOpen, setIsLeaveOpen] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [empName, setEmpName] = useState('Employee');
 
@@ -29,7 +31,6 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             setIsAttendanceOpen(true);
         }
 
-        // Try to get name from storage, or decode from token
         const storedName = localStorage.getItem('emp_name');
         if (storedName) {
             setEmpName(storedName);
@@ -37,11 +38,10 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             const token = localStorage.getItem('emp_token');
             if (token) {
                 try {
-                    // Simple JWT decode
                     const payload = JSON.parse(atob(token.split('.')[1]));
                     if (payload.name) {
                         setEmpName(payload.name);
-                        localStorage.setItem('emp_name', payload.name); // Persist it
+                        localStorage.setItem('emp_name', payload.name);
                     }
                 } catch (e) {
                     console.error("Failed to decode token", e);
@@ -49,6 +49,33 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
             }
         }
     }, [pathname]);
+
+    useEffect(() => {
+        const preloadFaceImages = async () => {
+            const token = localStorage.getItem('emp_token');
+            if (!token) return;
+
+            if (sessionStorage.getItem('face_images')) return;
+            if (sessionStorage.getItem('face_images_fetching')) return;
+
+            sessionStorage.setItem('face_images_fetching', 'true');
+            try {
+                console.log('🔄 [Global] Fetching face images from server...');
+                const imagesData = await apiRequest('/attendance/me/images', 'GET', null, token);
+                if (imagesData?.images?.length) {
+                    sessionStorage.setItem('face_images', JSON.stringify(imagesData.images));
+                    sessionStorage.setItem('face_images_count', imagesData.images.length.toString());
+                    console.log('✅ [Global] Face images pre-loaded successfully');
+                }
+            } catch (err) {
+                console.error('❌ [Global] Failed to pre-load images:', err);
+            } finally {
+                sessionStorage.removeItem('face_images_fetching');
+            }
+        };
+
+        preloadFaceImages();
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('emp_token');
@@ -69,7 +96,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
         { label: 'Sign Out', href: '/employee/attendance/signout', icon: LogOut },
         { label: 'Sign In Request', href: '/employee/attendance/request-signin', icon: FileInput },
         { label: 'Sign Out Request', href: '/employee/attendance/request-signout', icon: FileOutput },
-        { label: 'Attendance Info', href: '/employee/attendance/info', icon: Info },
+        { label: 'Attendance Log', href: '/employee/attendance/log', icon: CalendarCheck },
     ];
 
     return (
@@ -150,11 +177,52 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                                             key={item.href}
                                             href={item.href}
                                             className={`
-                           block px-3 py-2 rounded-lg text-sm transition-colors
-                           ${isActive
+                                                block px-3 py-2 rounded-lg text-sm transition-colors
+                                                ${isActive
                                                     ? 'text-blue-600 font-medium'
                                                     : 'text-gray-500 hover:text-gray-900'}
-                         `}
+                                            `}
+                                        >
+                                            {item.label}
+                                        </Link>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Leave Group */}
+                    <div>
+                        <button
+                            onClick={() => setIsLeaveOpen(!isLeaveOpen)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                        >
+                            <div className="flex items-center gap-3">
+                                <LogOut size={18} className="rotate-90" /> {/* Using LogOut rotated as a placeholder icon for Leave */}
+                                Leave
+                            </div>
+                            {isLeaveOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </button>
+
+                        {isLeaveOpen && (
+                            <div className="mt-1 ml-9 space-y-1">
+                                {[
+                                    { label: 'Leave Apply', href: '/employee/leave/apply' },
+                                    { label: 'Leave Balances', href: '/employee/leave/balances' },
+                                    { label: 'Leave Calendar', href: '/employee/leave/calendar' },
+                                    { label: 'Holiday Calendar', href: '/employee/leave/holidays' },
+                                ].map((item) => {
+                                    const isActive = pathname === item.href;
+                                    return (
+                                        <Link
+                                            key={item.href}
+                                            href={item.href}
+                                            className={`
+                                                block px-3 py-2 rounded-lg text-sm transition-colors
+                                                ${isActive
+                                                    ? 'text-blue-600 font-medium'
+                                                    : 'text-gray-500 hover:text-gray-900'}
+                                            `}
                                         >
                                             {item.label}
                                         </Link>

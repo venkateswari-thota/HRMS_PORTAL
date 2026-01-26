@@ -27,10 +27,18 @@ async def admin_signup(data: AdminSignup):
     if exists:
         raise HTTPException(status_code=400, detail="Admin already exists")
     
+    # Generate unique admin_id (ADM001, ADM002...)
+    count = await Admin.count()
+    admin_id = f"ADM{str(count + 1).zfill(3)}"
+    
     hashed = get_password_hash(data.password)
-    admin = Admin(email=data.email, password_hash=hashed)
+    admin = Admin(
+        admin_id=admin_id,
+        email=data.email, 
+        password_hash=hashed
+    )
     await admin.create()
-    return {"message": "Admin created successfully"}
+    return {"message": f"Admin created successfully with ID: {admin_id}"}
 
 @router.post("/admin/login")
 async def admin_login(data: AdminLogin):
@@ -56,4 +64,4 @@ async def employee_login(data: EmployeeLogin):
         data={"sub": emp.emp_id, "role": "employee", "name": emp.name},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    return {"access_token": access_token, "token_type": "bearer", "role": "employee", "name": emp.name}
+    return {"access_token": access_token, "token_type": "bearer", "role": "employee", "name": emp.name, "emp_id": emp.emp_id}

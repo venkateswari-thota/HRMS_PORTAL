@@ -1,280 +1,412 @@
 'use client';
-import { useEffect, useState } from 'react';
+
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import GeoGuard from '@/components/attendance/GeoGuard';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle, Camera, MapPin, Loader2, Image as ImageIcon } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Camera, MapPin, Loader2, Clock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// Dynamic import for FaceCheck to prevent SSR issues
-const FaceCheck = dynamic(() => import('@/components/FaceCheck'), { ssr: false, loading: () => <div className="text-center p-4">Loading camera...</div> });
+const FaceCheck = dynamic(
+    () => import('@/components/FaceCheck'),
+    { ssr: false, loading: () => <div className="text-center p-4">Loading camera...</div> }
+);
 
 export default function AttendanceSignIn() {
     const router = useRouter();
-    const [checkInAllowed, setCheckInAllowed] = useState(false);
+
+    const [locationStatus, setLocationStatus] = useState<'pending' | 'passed' | 'failed'>('pending');
+    const [faceStatus, setFaceStatus] = useState<'pending' | 'passed' | 'failed'>('pending');
     const [currentLoc, setCurrentLoc] = useState({ lat: 0, lng: 0 });
+    const [capturedImage, setCapturedImage] = useState<string | null>(null);
     const [showCamera, setShowCamera] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
     const [serverTime, setServerTime] = useState('');
     const [empName, setEmpName] = useState('Employee');
     const [loading, setLoading] = useState(true);
-    const [faceMatchSuccess, setFaceMatchSuccess] = useState(false);
+    const [isCheckingIn, setIsCheckingIn] = useState(false);
+    const [isLocationChecking, setIsLocationChecking] = useState(false);
 
-    // Face matching state (loaded directly, not via hook)
-    const [loadingImages, setLoadingImages] = useState(false);
     const [referenceDescriptors, setReferenceDescriptors] = useState<any>(null);
     const [employeeName, setEmployeeName] = useState('');
-    const [imageCount, setImageCount] = useState(0);
 
-    // Employee work location
-    const [workLocation, setWorkLocation] = useState({
-        lat: 0,
-        lng: 0,
-        radius: 0
-    });
-
-    // Mock Data (Ideally fetch from /auth/me or Config)
-    const mockTgtLat = 20.5937;
-    const mockTgtLng = 78.9629;
-    const mockRadius = 500000;
+    const mockTgtLat = 17.42275;
+    const mockTgtLng = 78.45315;
+    const mockRadius = 1000; // 1km
 
     useEffect(() => {
         const init = async () => {
             const token = localStorage.getItem('emp_token');
-            if (!token) { router.push('/auth/employee/signin'); return; }
+            if (!token) {
+                router.push('/auth/employee/signin');
+                return;
+            }
 
-            // Get Name
             const storedName = localStorage.getItem('emp_name');
             if (storedName) setEmpName(storedName);
 
             try {
-                // Fetch Time
-                const timeRes = await apiRequest('/attendance/time');
-                setServerTime(new Date(timeRes.iso_time).toLocaleString());
-
-                // Fetch employee work location
+                // Get employee info for work location
                 const empInfo = await apiRequest('/attendance/me/info', 'GET', null, token);
-                setWorkLocation({
-                    lat: empInfo.work_lat,
-                    lng: empInfo.work_lng,
-                    radius: empInfo.geofence_radius
-                });
                 setEmployeeName(empInfo.name);
 
-                // Load face images (descriptors will be created by FaceCheck component)
-                setLoadingImages(true);
-                const imagesData = await apiRequest('/attendance/me/images', 'GET', null, token);
-                if (imagesData && imagesData.images && imagesData.images.length > 0) {
-                    // FaceCheck component will handle descriptor creation from base64 images
-                    setReferenceDescriptors(imagesData.images); // Array of base64 data URLs
-                    setImageCount(imagesData.images.length);
-                } else {
-                    setStatusMsg('⚠️ No face images found. Please contact admin.');
+                // Load images from sessionStorage (Pre-loaded on Home)
+                let storedImages = sessionStorage.getItem('face_images');
+
+                // If not found, check if Home is currently fetching
+                if (!storedImages && sessionStorage.getItem('face_images_fetching')) {
+                    console.log('⏳ Face images are currently being fetched by Home. Waiting...');
+                    setStatusMsg('🔄 Syncing face identity data...');
+                    // Retry a few times
+                    for (let i = 0; i < 10; i++) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        storedImages = sessionStorage.getItem('face_images');
+                        if (storedImages) break;
+                    }
                 }
-                setLoadingImages(false);
+
+                if (storedImages) {
+                    setReferenceDescriptors(JSON.parse(storedImages));
+                    if (statusMsg.includes('Syncing')) setStatusMsg('');
+                } else if (!sessionStorage.getItem('face_images_fetching')) {
+                    console.warn('⚠️ Face data missing even after sync check.');
+                    setStatusMsg('❌ Face identity data not found. Please refresh page.');
+                }
             } catch (e: any) {
-                console.error(e);
-                setLoadingImages(false);
-                if (e.message?.includes('No face images')) {
-                    setStatusMsg('⚠️ No face images found. Please contact admin to upload your photos.');
-                }
+                console.error('Initialization error:', e);
             } finally {
                 setLoading(false);
             }
         };
+
         init();
 
         const timer = setInterval(() => {
             const now = new Date();
-            // Format: YYYY-MM-DD HH:mm:ss
-            const formatted = now.getFullYear() + "-" +
-                String(now.getMonth() + 1).padStart(2, '0') + "-" +
-                String(now.getDate()).padStart(2, '0') + " " +
-                String(now.getHours()).padStart(2, '0') + ":" +
-                String(now.getMinutes()).padStart(2, '0') + ":" +
-                String(now.getSeconds()).padStart(2, '0');
-            setServerTime(formatted);
+            setServerTime(now.toLocaleString());
         }, 1000);
-        return () => clearInterval(timer);
-    }, []);
 
-    const handleGeoStatus = (valid: boolean, lat: number, lng: number) => {
-        setCheckInAllowed(valid);
+        return () => clearInterval(timer);
+    }, [router]);
+
+    const handleGeoStatus = useCallback((valid: boolean, lat: number, lng: number) => {
         setCurrentLoc({ lat, lng });
-    };
+        setIsLocationChecking(false);
+        if (valid) {
+            setLocationStatus('passed');
+        } else {
+            setLocationStatus('failed');
+            // Check if it was a timeout (lat/lng = 0)
+            if (lat === 0) {
+                setStatusMsg('❌ Location verification timed out. Please try again or use the request link.');
+            }
+        }
+    }, []); // Empty deps because we only need to set state
 
     const handleCheckInClick = () => {
-        // Just open camera - images already loaded by useFaceMatching hook
-        console.log('🎥 Opening camera for face verification');
-        console.log('📸 Reference descriptors:', referenceDescriptors);
-        console.log('📊 Image count:', imageCount);
-        console.log('👤 Employee name:', employeeName);
-
-        if (!referenceDescriptors || loadingImages) {
-            setStatusMsg("⚠️ Face images are still loading. Please wait...");
-            console.warn('⚠️ Cannot open camera - images not loaded yet');
+        if (locationStatus === 'pending') {
+            setStatusMsg("⚠️ Waiting for location verification...");
             return;
         }
         setShowCamera(true);
         setStatusMsg('');
+        setCapturedImage(null); // Clear previous failure image
     };
 
-    const handleFaceSuccess = async () => {
+    const handleFaceSuccess = async (image?: string) => {
+        setFaceStatus('passed');
         setShowCamera(false);
+        setCapturedImage(null); // Clear any previous failure image
+        const msg = locationStatus === 'passed'
+            ? '✅ Face Verified! You can now click "Confirm" to finalize.'
+            : '✅ Face Verified';
+        setStatusMsg(msg);
+    };
+
+    const handleCheckInSubmit = async () => {
+        if (locationStatus !== 'passed' || faceStatus !== 'passed') return;
+
+        setIsCheckingIn(true);
+        setStatusMsg('⏳ Submitting check-in...');
+
         try {
             await apiRequest('/attendance/check-in', 'POST', {
                 lat: currentLoc.lat,
                 lng: currentLoc.lng
             }, localStorage.getItem('emp_token') || '');
 
-            setStatusMsg('Check-In Successful! ✅');
-            setTimeout(() => router.push('/employee/home'), 2000);
+            setStatusMsg('✅ Check-In Successful! Redirecting...');
+            sessionStorage.removeItem('last_face_failure');
+            setTimeout(() => router.push('/employee/attendance/log'), 1500);
         } catch (err: any) {
-            setStatusMsg('Failed: ' + err.message);
+            setStatusMsg('❌ Check-In Failed: ' + err.message);
+            setIsCheckingIn(false);
         }
     };
 
-    const handleFaceFailure = () => {
+    const handleFaceFailure = (image?: string) => {
+        setFaceStatus('failed');
         setShowCamera(false);
-        setStatusMsg("❌ Face doesn't match our records. Go with sign-in request.");
+        if (image) {
+            setCapturedImage(image);
+            sessionStorage.setItem('last_face_failure', image);
+        }
+
+        let reason = "Face matching failed";
+        if (locationStatus === 'failed') {
+            reason = "Location and Face matching failure";
+        } else {
+            reason = "Face matching failure";
+        }
+        setStatusMsg(`❌ Sign in request due to ${reason}`);
     };
 
-    if (loading) return <div className="p-10 text-center text-gray-500">Loading Attendance System...</div>;
+    const handleGoToRequest = (failureType: 'location' | 'face' | 'both') => {
+        sessionStorage.setItem('failure_mode', failureType);
+        sessionStorage.setItem('request_type', 'CHECK_IN');
+        router.push('/employee/attendance/request-signin');
+    };
+
+    if (loading) return <div className="p-10 text-center text-gray-500">Initializing Security Checks...</div>;
+
+    const hasFailure = locationStatus === 'failed' || faceStatus === 'failed';
 
     return (
-        <div className="max-w-5xl mx-auto">
-            {/* Header */}
+        <div className="max-w-5xl mx-auto p-4 md:p-8">
             <div className="mb-8 border-b border-gray-200 pb-4">
-                <h1 className="text-xl font-bold text-blue-600">Attendance</h1>
-                <div className="mt-4 flex gap-2">
-                    <button className="px-6 py-2 bg-gray-200 text-gray-600 font-medium rounded shadow-sm">Check In</button>
-                    <Link href="/employee/attendance/signout" className="px-6 py-2 bg-gray-200 text-gray-600 font-medium rounded hover:bg-gray-300 transition">Check Out</Link>
+                <div className="flex justify-between items-end">
+                    <div>
+                        <h1 className="text-2xl font-bold text-blue-900">Attendance Marking</h1>
+                        <p className="text-gray-500 text-sm">Secure biometric & location verified sign-in</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Face Images Loading Status */}
-            {loadingImages && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                    <span className="text-blue-700 font-medium">Loading your face images from cloud...</span>
-                </div>
-            )}
-
-            {referenceDescriptors && !loadingImages && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                    <span className="text-green-700 font-medium">
-                        ✅ {imageCount} face images loaded for {employeeName}
-                    </span>
-                </div>
-            )}
-
-            {/* Main Form Area */}
-            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm max-w-3xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-
-                    {/* Employee Name */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Employee Name <span className="text-red-500">*</span></label>
-                        <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded text-gray-700 font-medium">
-                            {empName}
+            <div className="grid md:grid-cols-3 gap-8">
+                {/* Left Column: Info & Status */}
+                <div className="md:col-span-2 space-y-6">
+                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Employee</label>
+                                <div className="p-3 bg-gray-50 rounded-lg text-gray-800 font-bold flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                    {empName}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Server Time</label>
+                                <div className="p-3 bg-gray-50 rounded-lg text-gray-800 font-mono font-bold flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-blue-500" />
+                                    {serverTime}
+                                </div>
+                            </div>
                         </div>
-                    </div>
 
-                    {/* Punch Time */}
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Punch Time <span className="text-red-500">*</span></label>
-                        <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded text-gray-700 font-mono">
-                            {serverTime}
+                        {/* Step Indicators */}
+                        <div className="space-y-4 pt-4 border-t border-gray-50">
+                            <h3 className="text-sm font-bold text-gray-700">Verification Steps</h3>
+
+                            {/* Step 1: Location */}
+                            <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${locationStatus === 'passed' ? 'bg-green-50 border-green-200' :
+                                locationStatus === 'failed' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                                }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${locationStatus === 'passed' ? 'bg-green-500 text-white' :
+                                        locationStatus === 'failed' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'
+                                        }`}>
+                                        {locationStatus === 'passed' ? <CheckCircle size={18} /> : 1}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-800">Location Check</p>
+                                        <p className="text-xs text-gray-500">Verifying you are at your assigned work location</p>
+                                    </div>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${locationStatus === 'passed' ? 'bg-green-200 text-green-700' :
+                                    locationStatus === 'failed' ? 'bg-red-200 text-red-700' :
+                                        isLocationChecking ? 'bg-blue-100 text-blue-600 animate-pulse' : 'bg-gray-200 text-gray-500'
+                                    }`}>
+                                    {locationStatus === 'passed' ? 'Verified' :
+                                        locationStatus === 'failed' ? 'Out of Range' :
+                                            isLocationChecking ? 'Checking...' : 'Ready'}
+                                </span>
+                            </div>
+
+                            {/* Step 2: Face */}
+                            <div className={`p-4 rounded-xl border flex items-center justify-between transition-all ${faceStatus === 'passed' ? 'bg-green-50 border-green-200' :
+                                faceStatus === 'failed' ? 'bg-red-50 border-red-200' :
+                                    locationStatus !== 'pending' ? 'bg-white border-blue-200 shadow-md' : 'bg-gray-50 border-gray-200'
+                                }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold ${faceStatus === 'passed' ? 'bg-green-500 text-white' :
+                                        faceStatus === 'failed' ? 'bg-red-500 text-white' :
+                                            locationStatus !== 'pending' ? 'bg-blue-600 text-white animate-pulse' : 'bg-gray-300 text-white'
+                                        }`}>
+                                        {faceStatus === 'passed' ? <CheckCircle size={18} /> : 2}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-800">Biometric Identity</p>
+                                        <p className="text-xs text-gray-500">Scanning face to confirm identity</p>
+                                    </div>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded ${faceStatus === 'passed' ? 'bg-green-200 text-green-700' :
+                                    faceStatus === 'failed' ? 'bg-red-200 text-red-700' :
+                                        locationStatus !== 'pending' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'
+                                    }`}>
+                                    {faceStatus === 'passed' ? 'Verified' :
+                                        faceStatus === 'failed' ? 'Failed' :
+                                            locationStatus !== 'pending' ? 'Ready' : 'Locked'}
+                                </span>
+                            </div>
                         </div>
-                    </div>
 
-                </div>
-
-                {/* Status Messages */}
-                {statusMsg && (
-                    <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${statusMsg.includes('Success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                        {statusMsg.includes('Success') ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
-                        <span className="font-medium">{statusMsg}</span>
-                        {!statusMsg.includes('Success') && (
-                            <Link href="/employee/attendance/request-signin" className="ml-auto text-sm underline hover:text-red-900">
-                                Request Sign In &rarr;
-                            </Link>
+                        {/* Status Message */}
+                        {statusMsg && (
+                            <div className={`p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 ${(statusMsg.includes('Success') || statusMsg.includes('Verified')) ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                                }`}>
+                                {(statusMsg.includes('Success') || statusMsg.includes('Verified')) ? <CheckCircle size={20} /> : <AlertTriangle size={20} />}
+                                <span className="font-bold text-sm">{statusMsg}</span>
+                            </div>
                         )}
+
+                        <div className="flex justify-end gap-3 pt-4">
+                            {/* Final Outcomes: Show only after both checks are attempted */}
+                            {locationStatus !== 'pending' && faceStatus !== 'pending' && (
+                                <>
+                                    {/* Success Case */}
+                                    {locationStatus === 'passed' && faceStatus === 'passed' && (
+                                        <button
+                                            onClick={handleCheckInSubmit}
+                                            disabled={isCheckingIn}
+                                            className="px-10 py-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all shadow-xl flex items-center gap-2"
+                                        >
+                                            {isCheckingIn ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                                            {isCheckingIn ? 'Signing In...' : 'Confirm Check In'}
+                                        </button>
+                                    )}
+
+                                    {/* Failure Case: Location Fail */}
+                                    {locationStatus === 'failed' && faceStatus === 'passed' && (
+                                        <button
+                                            onClick={() => handleGoToRequest('location')}
+                                            className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
+                                        >
+                                            <AlertTriangle size={20} />
+                                            Sign in request due to location fail
+                                        </button>
+                                    )}
+
+                                    {/* Failure Case: Face Fail */}
+                                    {locationStatus === 'passed' && faceStatus === 'failed' && (
+                                        <button
+                                            onClick={() => handleGoToRequest('face')}
+                                            className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
+                                        >
+                                            <AlertTriangle size={20} />
+                                            Sign in request due to face matching fail
+                                        </button>
+                                    )}
+
+                                    {/* Failure Case: Both Fail */}
+                                    {locationStatus === 'failed' && faceStatus === 'failed' && (
+                                        <button
+                                            onClick={() => handleGoToRequest('both')}
+                                            className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
+                                        >
+                                            <AlertTriangle size={20} />
+                                            Sign in request due to location and face failure
+                                        </button>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Active Triggers */}
+                            {locationStatus === 'pending' && (
+                                <button
+                                    disabled={isLocationChecking}
+                                    onClick={() => {
+                                        setIsLocationChecking(true);
+                                        setStatusMsg('');
+                                    }}
+                                    className={`px-10 py-4 font-bold rounded-xl transition-all shadow-xl flex items-center gap-2 cursor-pointer ${isLocationChecking ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                                >
+                                    {isLocationChecking ? <Loader2 className="animate-spin" size={20} /> : <MapPin size={20} />}
+                                    {isLocationChecking ? 'Checking Location...' : 'Check Location'}
+                                </button>
+                            )}
+
+                            {locationStatus !== 'pending' && faceStatus === 'pending' && (
+                                <button
+                                    onClick={() => setShowCamera(true)}
+                                    className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-xl flex items-center gap-2 cursor-pointer"
+                                >
+                                    <Camera size={20} />
+                                    Start Face Verification
+                                </button>
+                            )}
+                        </div>
                     </div>
-                )}
+                </div>
 
-                {/* Primary Action */}
-                <div className="flex justify-end gap-3">
-                    {!faceMatchSuccess && (
-                        <button
-                            onClick={handleCheckInClick}
-                            disabled={!referenceDescriptors || loadingImages}
-                            className="px-8 py-3 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 transition shadow-lg flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            <Camera size={20} />
-                            {loadingImages ? 'Loading Images...' : 'Verify Face'}
-                        </button>
-                    )}
+                {/* Right Column: Mini Map / Visual Status */}
+                <div className="space-y-6">
+                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <MapPin className="text-blue-500" size={16} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Location</span>
+                        </div>
+                        <div className="rounded-xl overflow-hidden grayscale contrast-125 border border-gray-100">
+                            <GeoGuard active={isLocationChecking} targetLat={mockTgtLat} targetLng={mockTgtLng} radius={mockRadius} onStatusChange={handleGeoStatus} />
+                        </div>
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="flex justify-between text-[10px] font-mono text-gray-500 uppercase">
+                                <span>Lat</span>
+                                <span>Lng</span>
+                            </div>
+                            <div className="flex justify-between font-mono text-xs font-bold text-gray-700">
+                                <span>{currentLoc.lat.toFixed(6)}</span>
+                                <span>{currentLoc.lng.toFixed(6)}</span>
+                            </div>
+                        </div>
+                    </div>
 
-                    {faceMatchSuccess && (
-                        <button
-                            onClick={async () => {
-                                try {
-                                    const token = localStorage.getItem('emp_token');
-                                    await apiRequest('/attendance/check-in', 'POST', {
-                                        lat: currentLoc.lat,
-                                        lng: currentLoc.lng
-                                    }, token || '');
-                                    setStatusMsg('✅ Check-In Successful!');
-                                    setTimeout(() => router.push('/employee/home'), 2000);
-                                } catch (err: any) {
-                                    setStatusMsg('❌ Failed: ' + err.message);
-                                }
-                            }}
-                            disabled={!checkInAllowed}
-                            className="px-8 py-3 bg-green-600 text-white font-bold rounded hover:bg-green-700 transition shadow-lg flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            <CheckCircle size={20} />
-                            Submit Check In
-                        </button>
+                    {capturedImage && (
+                        <div className="bg-white p-4 rounded-2xl border border-red-100 shadow-md">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Camera className="text-red-500" size={16} />
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-red-400">Captured Face Fail</span>
+                            </div>
+                            <img src={capturedImage} className="w-full h-48 object-cover rounded-lg border-2 border-red-500" alt="Captured fail" />
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Hidden GeoGuard */}
-            <div className="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg max-w-xs opacity-75">
-                <div className="flex items-center gap-2 mb-2 text-gray-600">
-                    <MapPin size={16} />
-                    <span className="text-xs font-semibold uppercase">Location Monitor</span>
-                </div>
-                <GeoGuard targetLat={mockTgtLat} targetLng={mockTgtLng} radius={mockRadius} onStatusChange={handleGeoStatus} />
-                <div className="mt-2 text-xs text-gray-400 font-mono">
-                    {currentLoc.lat.toFixed(5)}, {currentLoc.lng.toFixed(5)}
-                </div>
-            </div>
+            {/* Verification Modal */}
+            {showCamera && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-900/40 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-2xl border border-blue-100 animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-2xl font-black text-gray-800">Biometric Check</h3>
+                                <p className="text-gray-500">Security layer 2: Face Recognition</p>
+                            </div>
+                            <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-gray-100 rounded-full transition">
+                                <span className="text-2xl text-gray-400">&times;</span>
+                            </button>
+                        </div>
 
-            {/* Camera Modal Overlay */}
-            {showCamera && referenceDescriptors && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-                    <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-2xl">
-                        <h3 className="text-2xl font-bold mb-4 text-center text-gray-800">Identity Verification (Check In)</h3>
-                        <p className="text-center text-gray-600 mb-6">Please look at the camera and blink naturally</p>
                         <FaceCheck
                             referenceDescriptors={referenceDescriptors}
                             onMatchSuccess={handleFaceSuccess}
                             onMatchFail={handleFaceFailure}
                             employeeName={employeeName}
                         />
-                        <div className="mt-6 flex justify-between items-center">
-                            <span className="text-xs text-gray-400">🔒 Your face data is processed locally and never sent to servers</span>
-                            <button
-                                onClick={() => setShowCamera(false)}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded transition"
-                            >
-                                Cancel
-                            </button>
+
+                        <div className="mt-8 flex items-center justify-center gap-6 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                            <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> End-to-end Encrypted</span>
+                            <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Local Processing</span>
                         </div>
                     </div>
                 </div>

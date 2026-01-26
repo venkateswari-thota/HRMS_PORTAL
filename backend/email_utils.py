@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
 # Credentials (In Production use Env Vars)
 SMTP_SERVER = "smtp.gmail.com"
@@ -59,4 +60,39 @@ def send_credentials_email(to_email: str, emp_id: str, password: str, name: str,
         return True
     except Exception as e:
         print(f"Failed to send email: {e}")
+        return False
+
+def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, type: str, reason: str, lat: float, lng: float):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = admin_email
+        msg['Subject'] = f"Attendance Exception Request: {type} - {emp_id}"
+
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Attendance Exception Request</h2>
+            <p><strong>Employee Name:</strong> {emp_name}</p>
+            <p><strong>Employee ID:</strong> {emp_id}</p>
+            <p><strong>Request Type:</strong> {type}</p>
+            <p><strong>Reason:</strong> {reason}</p>
+            <p><strong>Location:</strong> {lat}, {lng}</p>
+            <p><strong>Timestamp:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            <br>
+            <p>Please login to Admin Portal to Approve/Reject this request.</p>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, 'html'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"✅ Email sent to admin: {admin_email}")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
         return False

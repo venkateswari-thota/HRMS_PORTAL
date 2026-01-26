@@ -1,10 +1,27 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { apiRequest } from '@/lib/api';
+import { Loader2, CheckCircle, Camera, Clock, User, LogIn } from 'lucide-react';
+
+const dailyQuotes = [
+    "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    "The only way to do great work is to love what you do.",
+    "Believe you can and you're halfway there.",
+    "Your limitation—it's only your imagination.",
+    "Push yourself, because no one else is going to do it for you.",
+    "Great things never come from comfort zones.",
+    "Dream it. Wish it. Do it.",
+    "Success doesn't just find you. You have to go out and get it.",
+    "The harder you work for something, the greater you'll feel when you achieve it.",
+    "Dream bigger. Do bigger."
+];
 
 export default function EmployeeHome() {
     const [empName, setEmpName] = useState('Employee');
+    const [quote, setQuote] = useState('');
 
     useEffect(() => {
+        // Get employee name
         const storedName = localStorage.getItem('emp_name');
         if (storedName) {
             setEmpName(storedName);
@@ -17,121 +34,101 @@ export default function EmployeeHome() {
                 } catch (e) { }
             }
         }
+
+        // Get daily quote
+        const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 1000 / 60 / 60 / 24);
+        setQuote(dailyQuotes[dayOfYear % dailyQuotes.length]);
     }, []);
 
     return (
-        <div className="space-y-6">
-            {/* Top Banner similar to reference */}
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <div className="p-3 bg-orange-100 rounded-full text-orange-600">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
-                    </div>
-                    <div>
-                        <h3 className="font-semibold text-gray-900">Your Gateway to Possibilities</h3>
-                        <p className="text-sm text-gray-500">Loans, Taxes, Salary Advances, All within Pragyatmika!</p>
-                    </div>
-                </div>
-                <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">
-                    Explore
-                </button>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-8">
+            {/* Welcome Banner */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-8 mb-8 shadow-lg">
+                <h1 className="text-3xl md:text-4xl font-bold text-white">
+                    Welcome Back! {empName}
+                </h1>
+                <p className="text-green-100 mt-2 text-lg">
+                    Ready to make today count? Let's get started!
+                </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-                {/* Review Widget */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-700">Review</h3>
+            {/* Daily Quote */}
+            <div className="bg-white rounded-2xl p-12 shadow-xl border border-gray-100 mb-8">
+                <div className="flex items-start gap-4">
+                    <div className="text-6xl text-blue-500 font-serif leading-none">"</div>
+                    <div className="flex-1">
+                        <p className="text-3xl md:text-4xl font-bold text-gray-800 leading-relaxed mb-4">
+                            {quote}
+                        </p>
+                        <p className="text-gray-500 text-lg italic">— Daily Motivation</p>
                     </div>
-                    <div className="p-8 flex-1 flex flex-col items-center justify-center text-center">
-                        <div className="mb-4 text-blue-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                        </div>
-                        <p className="text-gray-500 text-sm">Hurrah! You've nothing to review.</p>
+                    <div className="text-6xl text-blue-500 font-serif leading-none self-end">"</div>
+                </div>
+            </div>
+
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Attendance Card */}
+                <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-100">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-700">Today's Status</h3>
+                        <div className="h-3 w-3 rounded-full bg-green-400"></div>
+                    </div>
+                    <div className="text-3xl font-bold text-gray-900 mb-2">
+                        {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <span className="text-xs text-green-600 font-medium whitespace-nowrap overflow-hidden text-ellipsis">System Secure & Ready</span>
                     </div>
                 </div>
 
-                {/* Date / Shift Widget */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between">
-                    <div>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900">28 December 2025</h3>
-                                <p className="text-sm text-gray-500">Sunday | General Shift</p>
-                            </div>
-                            <div className="h-3 w-3 rounded-full bg-green-400"></div>
-                        </div>
-                        <div className="mt-6 text-3xl font-mono text-gray-800">
-                            14:21:14
-                        </div>
-                    </div>
-                    <div className="mt-4 flex justify-end">
-                        <button className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm hover:bg-blue-700">
-                            Sign In
+                {/* Quick Actions Card */}
+                <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow text-white">
+                    <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                    <div className="space-y-2">
+                        <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
+                            <span className="font-medium">📍 Mark Attendance</span>
+                        </button>
+                        <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
+                            <span className="font-medium">📊 View Reports</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Quick Access */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                    <h3 className="font-semibold text-gray-700 mb-4">Quick Access</h3>
+                {/* Notifications Card */}
+                <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow border border-gray-100">
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Notifications</h3>
                     <div className="space-y-3">
-                        <div className="p-3 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between">
-                            <span>Reimbursement Payslip</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between">
-                            <span>IT Statement</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between">
-                            <span>YTD Reports</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                        </div>
-                        <div className="p-3 bg-gray-50 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 cursor-pointer flex justify-between">
-                            <span>Loan Statement</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                        <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
+                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                            <p className="text-sm text-gray-700">No new notifications</p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Payslip Mockup */}
-                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 lg:col-span-2">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="font-semibold text-gray-700">Payslip</h3>
-                        <a href="#" className="text-blue-600 text-sm hover:underline">View Details -&gt;</a>
+            {/* Additional Info Section */}
+            <div className="mt-8 bg-white rounded-xl p-6 shadow-md border border-gray-100">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Dashboard</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
+                        <div className="text-3xl font-bold text-purple-600">0</div>
+                        <p className="text-sm text-gray-600 mt-1">Pending Tasks</p>
                     </div>
-                    <div className="flex flex-col md:flex-row gap-8 items-center">
-                        <div className="relative h-32 w-32 border-8 border-blue-500 rounded-full flex items-center justify-center">
-                            <div className="absolute inset-0 border-8 border-green-300 rounded-full clip-half"></div>
-                            <span className="font-bold text-gray-800">Nov 2025</span>
-                        </div>
-                        <div className="flex-1 w-full space-y-4">
-                            <div className="flex justify-between border-b border-gray-100 pb-2">
-                                <span className="text-gray-500 text-sm">Paid Days</span>
-                                <span className="font-medium">28</span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-100 pb-2">
-                                <span className="text-gray-500 text-sm border-l-4 border-blue-500 pl-2">Gross Pay</span>
-                                <span className="font-medium">*****</span>
-                            </div>
-                            <div className="flex justify-between border-b border-gray-100 pb-2">
-                                <span className="text-gray-500 text-sm border-l-4 border-green-300 pl-2">Deduction</span>
-                                <span className="font-medium">*****</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 text-sm border-l-4 border-gray-800 pl-2">Net Pay</span>
-                                <span className="font-medium">*****</span>
-                            </div>
-                        </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
+                        <div className="text-3xl font-bold text-green-600">100%</div>
+                        <p className="text-sm text-gray-600 mt-1">Attendance</p>
                     </div>
-                    <div className="mt-6 flex justify-between items-center">
-                        <button className="text-blue-600 text-sm hover:underline">Download</button>
-                        <button className="text-blue-600 text-sm hover:underline">Show Salary</button>
+                    <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
+                        <div className="text-3xl font-bold text-orange-600">0</div>
+                        <p className="text-sm text-gray-600 mt-1">Leave Balance</p>
+                    </div>
+                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
+                        <div className="text-3xl font-bold text-blue-600">Active</div>
+                        <p className="text-sm text-gray-600 mt-1">Status</p>
                     </div>
                 </div>
-
             </div>
         </div>
     );

@@ -201,17 +201,17 @@ export default function AdminRequestsPage() {
                                         <div className="flex lg:flex-col gap-2 justify-center shrink-0">
                                             <button
                                                 onClick={() => handleAction(req.id, 'APPROVE')}
-                                                className="lg:w-32 h-8 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
+                                                className="lg:w-32 h-12 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
                                             >
-                                                <Check size={12} strokeWidth={4} />
-                                                <span className="text-[10px] tracking-tight uppercase">Approve</span>
+                                                <Check size={14} strokeWidth={4} />
+                                                <span className="text-[11px] tracking-tight uppercase">Approve</span>
                                             </button>
                                             <button
                                                 onClick={() => handleAction(req.id, 'REJECT')}
-                                                className="lg:w-32 h-8 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
+                                                className="lg:w-32 h-12 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
                                             >
-                                                <X size={12} strokeWidth={4} />
-                                                <span className="text-[10px] tracking-tight uppercase">Reject</span>
+                                                <X size={14} strokeWidth={4} />
+                                                <span className="text-[11px] tracking-tight uppercase">Reject</span>
                                             </button>
                                         </div>
                                     </div>

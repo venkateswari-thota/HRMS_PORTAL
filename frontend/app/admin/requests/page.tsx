@@ -201,17 +201,17 @@ export default function AdminRequestsPage() {
                                         <div className="flex lg:flex-col gap-2 justify-center shrink-0">
                                             <button
                                                 onClick={() => handleAction(req.id, 'APPROVE')}
-                                                className="flex-1 lg:w-28 py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-100 active:scale-95 flex items-center justify-center gap-2 group"
+                                                className="flex-1 lg:w-24 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
                                             >
-                                                <Check size={14} strokeWidth={4} className="group-hover:scale-110 transition-transform" />
-                                                <span className="text-[10px] tracking-tight uppercase">Approve</span>
+                                                <Check size={12} strokeWidth={4} />
+                                                <span className="text-[9px] tracking-tight uppercase">Approve</span>
                                             </button>
                                             <button
                                                 onClick={() => handleAction(req.id, 'REJECT')}
-                                                className="flex-1 lg:w-28 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-100 active:scale-95 flex items-center justify-center gap-2 group"
+                                                className="flex-1 lg:w-24 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"
                                             >
-                                                <X size={14} strokeWidth={4} className="group-hover:scale-110 transition-transform" />
-                                                <span className="text-[10px] tracking-tight uppercase">Reject</span>
+                                                <X size={12} strokeWidth={4} />
+                                                <span className="text-[9px] tracking-tight uppercase">Reject</span>
                                             </button>
                                         </div>
                                     </div>

@@ -23,8 +23,20 @@ export default function EmployeeRegisterForm() {
   const [uploadError, setUploadError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
+  // Edit states for location
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [tempLat, setTempLat] = useState(0);
+  const [tempLng, setTempLng] = useState(0);
+
   const handleLocationSelect = (lat: number, lng: number) => {
     setFormData(prev => ({ ...prev, work_lat: lat, work_lng: lng }));
+    setTempLat(lat);
+    setTempLng(lng);
+  };
+
+  const handleSaveLocation = () => {
+    setFormData(prev => ({ ...prev, work_lat: tempLat, work_lng: tempLng }));
+    setIsEditingLocation(false);
   };
 
   const processFiles = (files: FileList | File[]) => {
@@ -207,6 +219,8 @@ export default function EmployeeRegisterForm() {
         std_check_in: '09:00',
         std_check_out: '18:00',
       });
+      setTempLat(0);
+      setTempLng(0);
       setFaceImages([]);
       setImagePreviews([]);
 
@@ -262,12 +276,63 @@ export default function EmployeeRegisterForm() {
         <div className="col-span-2 space-y-2">
           <div className="flex justify-between items-end">
             <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Work Location (Geo-fencing)</label>
-            <span className="text-xs text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded border border-blue-100">
-              {formData.work_lat.toFixed(5)}, {formData.work_lng.toFixed(5)}
-            </span>
+            <div className="relative group min-w-[200px] flex justify-end">
+              {!isEditingLocation ? (
+                <div className="flex items-center gap-2 text-xs text-blue-600 font-mono bg-blue-50 px-3 py-1.5 rounded border border-blue-100 shadow-sm transition-all group-hover:pr-10">
+                  <span>{formData.work_lat.toFixed(5)}, {formData.work_lng.toFixed(5)}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingLocation(true);
+                      setTempLat(formData.work_lat);
+                      setTempLng(formData.work_lng);
+                    }}
+                    className="absolute right-1 opacity-0 group-hover:opacity-100 p-1 text-blue-400 hover:text-blue-600 hover:bg-white rounded transition-all"
+                    title="Edit Coordinates"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-white border border-blue-300 p-1 rounded shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                  <input
+                    type="number"
+                    step="0.00001"
+                    placeholder="Lat"
+                    className="w-20 text-[10px] p-1 border border-gray-100 rounded outline-none focus:border-blue-500"
+                    value={tempLat === 0 ? '' : tempLat}
+                    onChange={e => setTempLat(parseFloat(e.target.value) || 0)}
+                    autoFocus
+                  />
+                  <input
+                    type="number"
+                    step="0.00001"
+                    placeholder="Lng"
+                    className="w-20 text-[10px] p-1 border border-gray-100 rounded outline-none focus:border-blue-500"
+                    value={tempLng === 0 ? '' : tempLng}
+                    onChange={e => setTempLng(parseFloat(e.target.value) || 0)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSaveLocation}
+                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                    title="Apply Location"
+                  >
+                    <CheckCircle size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingLocation(false)}
+                    className="p-1 text-gray-400 hover:bg-gray-100 rounded"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="h-72 rounded-xl overflow-hidden border border-gray-300 shadow-inner">
-            <MapPicker onSelect={handleLocationSelect} />
+            <MapPicker onSelect={handleLocationSelect} lat={formData.work_lat} lng={formData.work_lng} />
           </div>
         </div>
 

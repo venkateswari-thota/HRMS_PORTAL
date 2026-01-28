@@ -13,8 +13,17 @@ const icon = L.icon({
   iconAnchor: [12, 41],
 });
 
-function LocationHandler({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
+function LocationHandler({ onSelect, lat, lng }: { onSelect: (lat: number, lng: number) => void; lat: number; lng: number }) {
   const [position, setPosition] = useState<[number, number] | null>(null);
+
+  // Sync internal position with external props
+  useEffect(() => {
+    if (lat !== 0 || lng !== 0) {
+      setPosition([lat, lng]);
+    } else {
+      setPosition(null);
+    }
+  }, [lat, lng]);
 
   const map = useMapEvents({
     click(e) {
@@ -23,18 +32,24 @@ function LocationHandler({ onSelect }: { onSelect: (lat: number, lng: number) =>
       map.flyTo(e.latlng, map.getZoom());
     },
     locationfound(e) {
-      const latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
-      setPosition([latlng.lat, latlng.lng]);
-      onSelect(latlng.lat, latlng.lng);
-      map.flyTo(latlng, 16);
+      if (lat === 0 && lng === 0) { // Only auto-locate if no location set
+        const latlng = { lat: e.latlng.lat, lng: e.latlng.lng };
+        setPosition([latlng.lat, latlng.lng]);
+        onSelect(latlng.lat, latlng.lng);
+        map.flyTo(latlng, 16);
+      }
     },
   });
 
   useEffect(() => {
-    map.locate();
-  }, [map]);
+    if (lat === 0 && lng === 0) {
+      map.locate();
+    } else {
+      map.flyTo([lat, lng], 16);
+    }
+  }, [map, lat, lng]);
 
-  return position === null ? null : (
+  return position === null || (position[0] === 0 && position[1] === 0) ? null : (
     <>
       <Marker position={position} icon={icon}></Marker>
       <Circle center={position} radius={100} pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.1 }} />
@@ -42,7 +57,7 @@ function LocationHandler({ onSelect }: { onSelect: (lat: number, lng: number) =>
   );
 }
 
-export default function MapPicker({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
+export default function MapPicker({ onSelect, lat = 0, lng = 0 }: { onSelect: (lat: number, lng: number) => void; lat?: number; lng?: number }) {
   // Fix: Force re-render on mount to avoid Leaflet node issues in Strict Mode
   const [key, setKey] = useState(0);
 
@@ -51,12 +66,12 @@ export default function MapPicker({ onSelect }: { onSelect: (lat: number, lng: n
   }, []);
 
   return (
-    <MapContainer key={key} center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}>
+    <MapContainer key={key} center={[lat || 20.5937, lng || 78.9629]} zoom={lat !== 0 ? 16 : 5} style={{ height: '100%', width: '100%', borderRadius: 'inherit' }}>
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='&copy; OpenStreetMap'
       />
-      <LocationHandler onSelect={onSelect} />
+      <LocationHandler onSelect={onSelect} lat={lat} lng={lng} />
     </MapContainer>
   );
 }

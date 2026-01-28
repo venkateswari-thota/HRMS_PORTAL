@@ -177,7 +177,7 @@ function LeaveBalanceForm() {
                                     <option value="" disabled>Choose an employee...</option>
                                     {employees.map(emp => (
                                         <option key={emp.emp_id} value={emp.emp_id}>
-                                            {emp.emp_id} - {emp.name}
+                                            {emp.emp_id}
                                         </option>
                                     ))}
                                 </select>

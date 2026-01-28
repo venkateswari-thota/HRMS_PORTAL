@@ -39,26 +39,23 @@ function HolidaySetupForm() {
             setAllHolidays(data);
             setCalendarLoading(false);
 
-            let fetchedHolidays: HolidayRow[] = [];
-            if (data.length > 0) {
-                let filtered = data;
-                if (selectedMonth) {
-                    filtered = data.filter((h: any) => {
-                        const d = new Date(h.date);
-                        return d.getMonth() + 1 === selectedMonth;
-                    });
-                }
+            // For Setup Form inputs
+            let formHolidays: HolidayRow[] = [{ date: '', reason: '' }];
+
+            if (selectedMonth) {
+                // Only load into form if a specific month is selected (Edit mode)
+                const filtered = data.filter((h: any) => {
+                    const d = new Date(h.date);
+                    return d.getMonth() + 1 === selectedMonth;
+                });
 
                 if (filtered.length > 0) {
-                    fetchedHolidays = filtered.map((h: any) => ({ date: h.date, reason: h.reason }));
-                } else {
-                    fetchedHolidays = selectedMonth ? [] : [{ date: '', reason: '' }];
+                    formHolidays = filtered.map((h: any) => ({ date: h.date, reason: h.reason }));
                 }
-            } else {
-                fetchedHolidays = selectedMonth ? [] : [{ date: '', reason: '' }];
             }
-            setHolidays(fetchedHolidays);
-            setInitialHolidays(JSON.parse(JSON.stringify(fetchedHolidays)));
+
+            setHolidays(formHolidays);
+            setInitialHolidays(JSON.parse(JSON.stringify(formHolidays)));
         } catch (e) {
             console.error("Failed to fetch holidays", e);
             setCalendarLoading(false);
@@ -103,8 +100,12 @@ function HolidaySetupForm() {
             const validHolidays = holidays.filter(h => h.date && h.reason);
             await apiRequest('/leave/admin/holidays/setup', 'POST', { year, month, holidays: validHolidays }, token || '');
 
-            // Refresh data instead of redirecting
-            fetchHolidays(year, month);
+            // 1. Refresh global calendar data (pass null so form stays empty)
+            fetchHolidays(year, null);
+
+            // 2. Reset month context
+            setMonth(null);
+
             setStatusMsg('✅ Successfully saved!');
             setTimeout(() => setStatusMsg(''), 3000);
             setLoading(false);
@@ -116,6 +117,7 @@ function HolidaySetupForm() {
 
     const handleCancel = () => {
         if (confirm("Are you sure you want to clear all fields?")) {
+            setMonth(null);
             setHolidays([{ date: '', reason: '' }]);
             setStatusMsg('Fields cleared.');
             setTimeout(() => setStatusMsg(''), 2000);

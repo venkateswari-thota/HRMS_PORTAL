@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { X, Shield, MapPin, Clock, Mail, AlertCircle } from 'lucide-react';
+import { X, Shield, MapPin, Clock, Mail, AlertCircle, Edit2 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
 const MapPicker = dynamic(() => import('./MapPicker'), { ssr: false, loading: () => <p className="text-white/50 animate-pulse">Loading Map Interface...</p> });
@@ -25,6 +25,16 @@ export default function EmployeeEditModal({ employee, onClose, onSuccess }: Empl
 
     const [emailError, setEmailError] = useState('');
     const [updating, setUpdating] = useState(false);
+
+    // Manual Coordinate Settings
+    const [isEditingLocation, setIsEditingLocation] = useState(false);
+    const [tempLat, setTempLat] = useState(employee.work_location?.lat || 0);
+    const [tempLng, setTempLng] = useState(employee.work_location?.lng || 0);
+
+    const handleSaveLocation = () => {
+        setFormData(prev => ({ ...prev, work_lat: tempLat, work_lng: tempLng }));
+        setIsEditingLocation(false);
+    };
 
     const validateEmail = (email: string) => {
         if (!email.toLowerCase().endsWith('@gmail.com')) {
@@ -133,9 +143,62 @@ export default function EmployeeEditModal({ employee, onClose, onSuccess }: Empl
                                     <MapPin size={14} className="text-green-500" />
                                     Work Location (Precise)
                                 </label>
-                                <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-indigo-100">
-                                    {formData.work_lat.toFixed(5)}, {formData.work_lng.toFixed(5)}
-                                </span>
+                                <div className="relative group min-w-[200px] flex justify-end">
+                                    {!isEditingLocation ? (
+                                        <div className="flex items-center gap-2 text-[10px] text-indigo-600 font-mono bg-indigo-50 px-3 py-1.5 rounded border border-indigo-100 shadow-sm transition-all group-hover:pr-10">
+                                            <span>{formData.work_lat.toFixed(5)}, {formData.work_lng.toFixed(5)}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsEditingLocation(true);
+                                                    setTempLat(formData.work_lat);
+                                                    setTempLng(formData.work_lng);
+                                                }}
+                                                className="absolute right-1 opacity-0 group-hover:opacity-100 p-1 text-indigo-400 hover:text-indigo-600 hover:bg-white rounded transition-all"
+                                                title="Edit Coordinates"
+                                            >
+                                                <Edit2 size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 bg-white border border-indigo-300 p-1 rounded shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                                            <input
+                                                type="number"
+                                                step="0.00001"
+                                                className="w-24 px-1.5 py-1 text-[10px] border rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                value={tempLat}
+                                                onChange={e => setTempLat(parseFloat(e.target.value) || 0)}
+                                                placeholder="Lat"
+                                            />
+                                            <input
+                                                type="number"
+                                                step="0.00001"
+                                                className="w-24 px-1.5 py-1 text-[10px] border rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                value={tempLng}
+                                                onChange={e => setTempLng(parseFloat(e.target.value) || 0)}
+                                                placeholder="Lng"
+                                            />
+                                            <div className="flex gap-1 border-l pl-1 ml-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleSaveLocation}
+                                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
+                                                    title="Apply Coordinates"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setIsEditingLocation(false)}
+                                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                                    title="Cancel"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div className="h-64 rounded-xl overflow-hidden border border-gray-200 shadow-inner">
                                 <MapPicker

@@ -84,54 +84,47 @@ export default function AdminApprovedPage() {
                 </div>
 
                 {/* Filter & Detail Row */}
-                <div className="flex flex-col lg:flex-row gap-6">
-                    {/* Selection Dropdown */}
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 flex-1 flex flex-col md:flex-row items-center gap-6">
-                        <div className="relative flex-1 w-full">
-                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                <User size={18} />
+                <div className="max-w-3xl">
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                            {selectedEmployee ? (
+                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Selected:</p>
+                                    <p className="text-sm font-black text-green-600">{selectedEmployee.name}</p>
+                                </div>
+                            ) : (
+                                <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest px-1">Filter by Employee ID</p>
+                            )}
+
+                            <div className="flex items-center gap-4 text-[10px] font-bold text-gray-400">
+                                <span><span className="text-green-600 font-black">{filteredRequests.length}</span> Shown</span>
+                                <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
+                                <span><span className="text-gray-600 font-black">{approvedRequests.length}</span> Total</span>
+                            </div>
+                        </div>
+
+                        <div className="relative group">
+                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                                <User size={20} />
                             </div>
                             <select
                                 value={selectedEmpId}
                                 onChange={(e) => setSelectedEmpId(e.target.value)}
-                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all text-sm font-bold text-gray-700 appearance-none cursor-pointer"
+                                className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] outline-none focus:ring-4 focus:ring-green-500/10 focus:bg-white focus:border-green-200 transition-all text-base font-bold text-gray-700 appearance-none cursor-pointer shadow-inner"
                             >
-                                <option value="all">View All Employees</option>
+                                <option value="all" className="font-bold py-4">All Active Workforce Members</option>
                                 {employees.map(emp => (
-                                    <option key={emp.emp_id} value={emp.emp_id}>
-                                        {emp.emp_id} - {emp.name}
+                                    <option key={emp.emp_id} value={emp.emp_id} className="font-bold py-4">
+                                        {emp.emp_id}
                                     </option>
                                 ))}
                             </select>
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                <Filter size={14} />
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4 shrink-0">
-                            <div className="px-5 py-3 bg-green-50 rounded-2xl border border-green-100 text-center">
-                                <p className="text-[10px] font-black text-green-400 uppercase tracking-widest leading-tight">Displayed</p>
-                                <p className="text-xl font-black text-green-600 leading-none mt-1">{filteredRequests.length}</p>
-                            </div>
-                            <div className="px-5 py-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">Total</p>
-                                <p className="text-xl font-black text-slate-600 leading-none mt-1">{approvedRequests.length}</p>
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                                <Filter size={16} />
                             </div>
                         </div>
                     </div>
-
-                    {/* Selected Employee Info */}
-                    {selectedEmployee && (
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 lg:w-96 flex items-center gap-5 hover:shadow-md transition-shadow animate-in slide-in-from-right-4 duration-500">
-                            <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-100">
-                                <User size={28} strokeWidth={2.5} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-0.5">Selected Employee</p>
-                                <h3 className="text-lg font-black text-gray-900 truncate leading-tight">{selectedEmployee.name}</h3>
-                                <p className="text-xs font-bold text-green-600">{selectedEmployee.emp_id}</p>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* Records List */}

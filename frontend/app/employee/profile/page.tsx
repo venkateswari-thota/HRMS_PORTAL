@@ -1,20 +1,26 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
-import { User, Mail, Briefcase, MapPin, Clock, ShieldCheck, Database, Server } from 'lucide-react';
+import { User, Mail, Briefcase, MapPin, Clock, ShieldCheck, Database, Server, XCircle } from 'lucide-react';
 
 export default function EmployeeProfile() {
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    // Edit states
+    const [isEditingEmail, setIsEditingEmail] = useState(false);
+    const [tempEmail, setTempEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const [updating, setUpdating] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 const token = localStorage.getItem('emp_token');
                 if (!token) return;
-                // Fetch from new /me/info endpoint
                 const data = await apiRequest('/attendance/me/info', 'GET', null, token);
                 setProfile(data);
+                setTempEmail(data.personal_email || '');
             } catch (e) {
                 console.error("Failed to load profile", e);
             } finally {
@@ -23,6 +29,31 @@ export default function EmployeeProfile() {
         };
         fetchProfile();
     }, []);
+
+    const validateEmail = (email: string) => {
+        if (!email.toLowerCase().endsWith('@gmail.com')) {
+            setEmailError('enter the valid mail');
+            return false;
+        }
+        setEmailError('');
+        return true;
+    };
+
+    const handleSaveEmail = async () => {
+        if (!validateEmail(tempEmail)) return;
+
+        setUpdating(true);
+        try {
+            const token = localStorage.getItem('emp_token');
+            await apiRequest('/attendance/me/update-email', 'POST', { email: tempEmail }, token!);
+            setProfile({ ...profile, personal_email: tempEmail });
+            setIsEditingEmail(false);
+        } catch (e: any) {
+            setEmailError(e.message || 'Failed to update email');
+        } finally {
+            setUpdating(false);
+        }
+    };
 
     if (loading) return (
         <div className="flex h-full items-center justify-center p-10">
@@ -64,11 +95,61 @@ export default function EmployeeProfile() {
                                 <p className="text-gray-900 font-medium">{profile.email}</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-full"><Mail size={18} /></div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-semibold">Personal Email</p>
-                                <p className="text-gray-900 font-medium">{profile.personal_email}</p>
+
+                        {/* Personal Email Section */}
+                        <div className="relative group p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-4">
+                                <div className="p-2 bg-indigo-100 text-indigo-600 rounded-full"><Mail size={18} /></div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-gray-500 uppercase font-semibold">Personal Email</p>
+                                    {!isEditingEmail ? (
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-gray-900 font-medium">{profile.personal_email}</p>
+                                            <button
+                                                onClick={() => {
+                                                    setIsEditingEmail(true);
+                                                    setTempEmail(profile.personal_email);
+                                                    setEmailError('');
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-white rounded-md transition-all shadow-sm"
+                                                title="Edit Email"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-1 space-y-2">
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="email"
+                                                    value={tempEmail}
+                                                    onChange={(e) => {
+                                                        setTempEmail(e.target.value);
+                                                        validateEmail(e.target.value);
+                                                    }}
+                                                    autoFocus
+                                                    className={`flex-1 text-sm p-1.5 bg-white border ${emailError ? 'border-red-500' : 'border-blue-300'} rounded outline-none focus:ring-2 focus:ring-blue-100`}
+                                                />
+                                                <button
+                                                    onClick={handleSaveEmail}
+                                                    disabled={!!emailError || updating}
+                                                    className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50 transition-colors"
+                                                    title="Save"
+                                                >
+                                                    {updating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ShieldCheck size={16} />}
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsEditingEmail(false)}
+                                                    className="p-1.5 bg-gray-200 text-gray-600 rounded hover:bg-gray-300 transition-colors"
+                                                    title="Cancel"
+                                                >
+                                                    <XCircle size={16} />
+                                                </button>
+                                            </div>
+                                            {emailError && <p className="text-[10px] text-red-500 font-medium">{emailError}</p>}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -13,6 +13,9 @@ import numpy as np
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
+class EmailUpdatePayload(BaseModel):
+    email: str
+
 # Helper Dependency
 async def get_current_emp_id(authorization: str = Header(...)):
     try:
@@ -43,6 +46,23 @@ async def get_my_info(emp_id: str = Depends(get_current_emp_id)):
         "std_check_out": emp.std_check_out,
         # "face_photo_count": len(emp.face_photos) if emp.face_photos else 0
     }
+
+@router.post("/me/update-email")
+async def update_personal_email(data: EmailUpdatePayload, emp_id: str = Depends(get_current_emp_id)):
+    # 1. Validation
+    new_email = data.email.strip().lower()
+    if not new_email.endswith("@gmail.com"):
+        raise HTTPException(status_code=400, detail="enter the valid mail")
+    
+    # 2. Update Employee
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    emp.personal_email = new_email
+    await emp.save()
+    
+    return {"message": "Email updated successfully", "personal_email": new_email}
 
 @router.get("/me/images")
 async def get_my_face_images(emp_id: str = Depends(get_current_emp_id)):

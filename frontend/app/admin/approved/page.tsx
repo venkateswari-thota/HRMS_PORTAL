@@ -20,15 +20,20 @@ import {
 export default function AdminApprovedPage() {
     const router = useRouter();
     const [approvedRequests, setApprovedRequests] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedEmpId, setSelectedEmpId] = useState('all');
 
-    const fetchApproved = async () => {
+    const fetchData = async () => {
         try {
-            const token = localStorage.getItem('admin_token');
-            const data = await apiRequest('/admin/approved', 'GET', null, token || '');
-            setApprovedRequests(Array.isArray(data) ? data : []);
+            const token = localStorage.getItem('admin_token') || '';
+            const [approvedData, empsData] = await Promise.all([
+                apiRequest('/admin/approved', 'GET', null, token),
+                apiRequest('/admin/employees', 'GET', null, token)
+            ]);
+            setApprovedRequests(Array.isArray(approvedData) ? approvedData : []);
+            setEmployees(Array.isArray(empsData) ? empsData : []);
         } catch (e) {
             console.error(e);
         } finally {
@@ -43,13 +48,14 @@ export default function AdminApprovedPage() {
             router.push('/auth/admin/signin');
             return;
         }
-        fetchApproved();
+        fetchData();
     }, [router]);
 
     const filteredRequests = approvedRequests.filter(req =>
-        req.emp_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (req.name && req.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        selectedEmpId === 'all' || req.emp_id === selectedEmpId
     );
+
+    const selectedEmployee = employees.find(emp => emp.emp_id === selectedEmpId);
 
     if (!mounted) return null;
 
@@ -77,28 +83,55 @@ export default function AdminApprovedPage() {
                     </div>
                 </div>
 
-                {/* Search & Stats */}
-                <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row items-center gap-6">
-                    <div className="relative flex-1 w-full">
-                        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search by Employee ID or Name..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all text-sm font-bold text-gray-700"
-                        />
-                    </div>
-                    <div className="flex items-center gap-4 shrink-0">
-                        <div className="px-5 py-3 bg-green-50 rounded-2xl border border-green-100 text-center">
-                            <p className="text-[10px] font-black text-green-400 uppercase tracking-widest leading-tight">Displayed</p>
-                            <p className="text-xl font-black text-green-600 leading-none mt-1">{filteredRequests.length}</p>
+                {/* Filter & Detail Row */}
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Selection Dropdown */}
+                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 flex-1 flex flex-col md:flex-row items-center gap-6">
+                        <div className="relative flex-1 w-full">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                <User size={18} />
+                            </div>
+                            <select
+                                value={selectedEmpId}
+                                onChange={(e) => setSelectedEmpId(e.target.value)}
+                                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all text-sm font-bold text-gray-700 appearance-none cursor-pointer"
+                            >
+                                <option value="all">View All Employees</option>
+                                {employees.map(emp => (
+                                    <option key={emp.emp_id} value={emp.emp_id}>
+                                        {emp.emp_id} - {emp.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                <Filter size={14} />
+                            </div>
                         </div>
-                        <div className="px-5 py-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">Total</p>
-                            <p className="text-xl font-black text-slate-600 leading-none mt-1">{approvedRequests.length}</p>
+                        <div className="flex items-center gap-4 shrink-0">
+                            <div className="px-5 py-3 bg-green-50 rounded-2xl border border-green-100 text-center">
+                                <p className="text-[10px] font-black text-green-400 uppercase tracking-widest leading-tight">Displayed</p>
+                                <p className="text-xl font-black text-green-600 leading-none mt-1">{filteredRequests.length}</p>
+                            </div>
+                            <div className="px-5 py-3 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">Total</p>
+                                <p className="text-xl font-black text-slate-600 leading-none mt-1">{approvedRequests.length}</p>
+                            </div>
                         </div>
                     </div>
+
+                    {/* Selected Employee Info */}
+                    {selectedEmployee && (
+                        <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-6 lg:w-96 flex items-center gap-5 hover:shadow-md transition-shadow animate-in slide-in-from-right-4 duration-500">
+                            <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-green-100">
+                                <User size={28} strokeWidth={2.5} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-0.5">Selected Employee</p>
+                                <h3 className="text-lg font-black text-gray-900 truncate leading-tight">{selectedEmployee.name}</h3>
+                                <p className="text-xs font-bold text-green-600">{selectedEmployee.emp_id}</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Records List */}

@@ -8,6 +8,8 @@ from backend.s3_service import S3Service
 import random
 import string
 
+router = APIRouter(prefix="/admin", tags=["Admin Operations"])
+
 from backend.email_utils import send_credentials_email
 
 class EmployeeUpdatePayload(BaseModel):

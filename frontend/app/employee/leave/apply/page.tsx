@@ -22,6 +22,7 @@ export default function LeaveApplyPage() {
 
     const [pendingLeaves, setPendingLeaves] = useState<any[]>([]);
     const [historyLeaves, setHistoryLeaves] = useState<any[]>([]);
+    const [holidays, setHolidays] = useState<string[]>([]);
 
     const leaveTypes = [
         "Loss of Pay",
@@ -42,8 +43,15 @@ export default function LeaveApplyPage() {
             setPendingLeaves(pending);
             const history = await apiRequest(`/leave/history?emp_id=${empId}`);
             setHistoryLeaves(history);
+
+            // Fetch holidays for the current year
+            const year = new Date().getFullYear();
+            const holidayData = await apiRequest(`/leave/holidays?year=${year}`);
+            if (Array.isArray(holidayData)) {
+                setHolidays(holidayData.map((h: any) => h.date));
+            }
         } catch (e) {
-            console.error("Failed to fetch leaves", e);
+            console.error("Failed to fetch leaves or holidays", e);
         }
     };
 
@@ -51,8 +59,59 @@ export default function LeaveApplyPage() {
         fetchLeaves();
     }, []);
 
+    const isNonWorkingDay = (dateStr: string) => {
+        if (!dateStr) return false;
+        const date = new Date(dateStr);
+        // getDay() returns 0 for Sunday
+        if (date.getDay() === 0) return true;
+        if (holidays.includes(dateStr)) return true;
+        return false;
+    };
+
+    const validateDateRange = (from: string, to: string) => {
+        if (!from || !to) return true;
+
+        let current = new Date(from);
+        const endDate = new Date(to);
+
+        while (current <= endDate) {
+            const dateStr = current.toISOString().split('T')[0];
+            if (isNonWorkingDay(dateStr)) {
+                return false;
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return true;
+    };
+
+    const handleDateChange = (field: 'from_date' | 'to_date', value: string) => {
+        if (isNonWorkingDay(value)) {
+            alert("That is not a working day, you are not allowed to apply for the leave");
+            return; // Don't update state to block the selection
+        }
+
+        const newFormData = { ...formData, [field]: value };
+
+        // If both dates are set, check the entire range
+        if (newFormData.from_date && newFormData.to_date) {
+            if (!validateDateRange(newFormData.from_date, newFormData.to_date)) {
+                alert("The selected range includes non-working days (Sundays or holidays). You are not allowed to apply for the leave.");
+                return;
+            }
+        }
+
+        setFormData(newFormData);
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Final safety validation
+        if (!validateDateRange(formData.from_date, formData.to_date)) {
+            alert("One or more days in your selected range is a non-working day. Please check the dates.");
+            return;
+        }
+
         setLoading(true);
         setStatusMsg('');
         const empId = localStorage.getItem('emp_id');
@@ -124,7 +183,7 @@ export default function LeaveApplyPage() {
                                         type="date" required
                                         className="flex-1 p-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                         value={formData.from_date}
-                                        onChange={e => setFormData({ ...formData, from_date: e.target.value })}
+                                        onChange={e => handleDateChange('from_date', e.target.value)}
                                     />
                                     <select
                                         className="w-32 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"
@@ -143,7 +202,7 @@ export default function LeaveApplyPage() {
                                         type="date" required
                                         className="flex-1 p-2.5 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                         value={formData.to_date}
-                                        onChange={e => setFormData({ ...formData, to_date: e.target.value })}
+                                        onChange={e => handleDateChange('to_date', e.target.value)}
                                     />
                                     <select
                                         className="w-32 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm"

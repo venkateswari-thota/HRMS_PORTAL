@@ -132,8 +132,15 @@ export default function AdminEmployeesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="mt-3 pt-2 text-center border-t border-gray-100">
+                                    <div className="mt-3 pt-2 text-center border-t border-gray-100 flex justify-between items-center">
                                         <p className="text-[9px] text-gray-400 uppercase font-bold">Face Samples: {emp.image_count}</p>
+                                        <button
+                                            onClick={() => setEditingEmployee(emp)}
+                                            className="p-1.5 opacity-0 group-hover:opacity-100 bg-gray-50 hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 rounded-lg transition-all border border-gray-100 hover:border-indigo-200"
+                                            title="Edit Profile"
+                                        >
+                                            <Edit2 size={12} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}

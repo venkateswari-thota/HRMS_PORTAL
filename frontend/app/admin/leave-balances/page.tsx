@@ -29,6 +29,7 @@ function LeaveBalanceForm() {
     const [loadingDashboard, setLoadingDashboard] = useState(false);
     const [filterType, setFilterType] = useState<'ALL' | 'EMPLOYEE'>('ALL');
     const [searchId, setSearchId] = useState('');
+    const [searchEmpName, setSearchEmpName] = useState('');
     const [dashStatusMsg, setDashStatusMsg] = useState('');
 
     const [employees, setEmployees] = useState<{ emp_id: string, name: string }[]>([]);
@@ -134,6 +135,13 @@ function LeaveBalanceForm() {
             fetchBalances();
         }
     }, [filterType]);
+
+    // Update searchEmpName whenever searchId changes
+    useEffect(() => {
+        const emp = employees.find(e => e.emp_id === searchId);
+        if (emp) setSearchEmpName(emp.name);
+        else setSearchEmpName('');
+    }, [searchId, employees]);
 
     // Update selectedEmpName whenever emp_id changes or employees load
     useEffect(() => {
@@ -334,23 +342,38 @@ function LeaveBalanceForm() {
 
                         {filterType === 'EMPLOYEE' && (
                             <form onSubmit={handleSearch} className="flex-1 space-y-2 animate-in slide-in-from-left duration-300">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Employee Search</label>
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Employee Search</label>
+                                    {searchEmpName && (
+                                        <span className="text-[10px] font-bold text-blue-600 animate-in fade-in slide-in-from-right-1">
+                                            {searchEmpName}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
-                                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                                        <input
-                                            type="text"
-                                            placeholder="Enter Employee ID..."
-                                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-medium"
+                                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none z-10" />
+                                        <select
+                                            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-sm font-bold text-gray-700 appearance-none cursor-pointer"
                                             value={searchId}
                                             onChange={(e) => setSearchId(e.target.value)}
                                             required
-                                        />
+                                        >
+                                            <option value="" disabled>Select Employee ID...</option>
+                                            {employees.map(emp => (
+                                                <option key={emp.emp_id} value={emp.emp_id}>
+                                                    {emp.emp_id}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                                        </div>
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={loadingDashboard}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-indigo-100"
                                     >
                                         {loadingDashboard ? '...' : <Search size={16} />}
                                         Fetch

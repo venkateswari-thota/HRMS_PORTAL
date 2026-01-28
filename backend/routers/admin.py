@@ -8,11 +8,9 @@ from backend.s3_service import S3Service
 import random
 import string
 
-router = APIRouter(prefix="/admin", tags=["Admin Operations"])
-
 from backend.email_utils import send_credentials_email
 
-class UpdateEmployeePayload(BaseModel):
+class EmployeeUpdatePayload(BaseModel):
     emp_id: str
     personal_email: EmailStr
     work_lat: float
@@ -160,51 +158,21 @@ async def register_employee(
 
 @router.get("/employees")
 async def list_employees():
-    all_docs = await Employee.get_motor_collection().find().to_list(length=1000)
-    results = []
-    for doc in all_docs:
-        try:
-            # Manually handle missing fields for older records
-            results.append({
-                "emp_id": doc.get("emp_id", "N/A"),
-                "name": doc.get("name", "Unknown"),
-                "email": doc.get("email", "N/A"),
-                "personal_email": doc.get("personal_email", ""),
-                "work_location": {
-                    "lat": doc.get("work_lat", 0.0),
-                    "lng": doc.get("work_lng", 0.0)
-                },
-                "geofence_radius": doc.get("geofence_radius", 100.0),
-                "std_check_in": doc.get("std_check_in", "09:00"),
-                "std_check_out": doc.get("std_check_out", "18:00"),
-                "image_count": len(doc.get("face_photos", [])) if doc.get("face_photos") else 0
-            })
-        except Exception as e:
-            print(f"⚠️ Error parsing employee doc {doc.get('_id')}: {e}")
-            continue
-    return results
-@router.post("/employee/update")
-async def update_employee(data: UpdateEmployeePayload):
-    # 1. Validation
-    if not data.personal_email.lower().endswith("@gmail.com"):
-        raise HTTPException(status_code=400, detail="enter the valid mail")
-    
-    # 2. Find Employee
-    emp = await Employee.find_one(Employee.emp_id == data.emp_id)
-    if not emp:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    
-    # 3. Update Fields
-    emp.personal_email = data.personal_email
-    emp.work_lat = data.work_lat
-    emp.work_lng = data.work_lng
-    emp.geofence_radius = data.geofence_radius
-    emp.std_check_in = data.std_check_in
-    emp.std_check_out = data.std_check_out
-    
-    await emp.save()
-    return {"message": "Employee updated successfully"}
-
+    employees = await Employee.find_all().to_list()
+    return [
+        {
+            "emp_id": emp.emp_id,
+            "name": emp.name,
+            "email": emp.email,
+            "personal_email": emp.personal_email,
+            "work_location": {"lat": emp.work_lat, "lng": emp.work_lng},
+            "geofence_radius": emp.geofence_radius,
+            "std_check_in": emp.std_check_in,
+            "std_check_out": emp.std_check_out,
+            "image_count": len(emp.face_photos) if emp.face_photos else 0
+        }
+        for emp in employees
+    ]
 @router.get("/requests")
 async def get_all_requests():
     """
@@ -347,5 +315,34 @@ async def get_approved_requests():
         d["id"] = str(a.id)
         results.append(d)
     return results
+
+@router.post("/employee/update")
+async def update_employee(data: EmployeeUpdatePayload):
+    # 1. Validation
+    personal_email = data.personal_email.strip().lower()
+    if not personal_email.endswith("@gmail.com"):
+        raise HTTPException(status_code=400, detail="enter the valid mail")
+    
+    # Simple check-in/out format validation (HH:MM)
+    import re
+    time_pat = r"^[0-9]{1,2}:[0-9]{2}$"
+    if not re.match(time_pat, data.std_check_in) or not re.match(time_pat, data.std_check_out):
+        raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+
+    # 2. Find and Update
+    emp = await Employee.find_one(Employee.emp_id == data.emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    emp.personal_email = personal_email
+    emp.work_lat = data.work_lat
+    emp.work_lng = data.work_lng
+    emp.geofence_radius = data.geofence_radius
+    emp.std_check_in = data.std_check_in
+    emp.std_check_out = data.std_check_out
+    
+    await emp.save()
+    
+    return {"message": "Employee updated successfully"}
 
 

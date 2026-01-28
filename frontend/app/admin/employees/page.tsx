@@ -14,17 +14,13 @@ export default function AdminEmployeesPage() {
     const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
     const fetchEmployees = async () => {
-        console.log("🔍 Fetching employees...");
-        setLoading(true); // Ensure loading is reset on manual triggers
         try {
             const token = localStorage.getItem('admin_token') || '';
             const data = await apiRequest('/admin/employees', 'GET', null, token);
-            console.log("✅ Fetched employees:", data);
-            setEmployees(Array.isArray(data) ? data : []);
+            setEmployees(data);
         } catch (e) {
-            console.error('❌ Failed to fetch employees:', e);
+            console.error('Failed to fetch employees:', e);
         } finally {
-            console.log("🔚 Finishing fetch...");
             setLoading(false);
         }
     };
@@ -40,6 +36,14 @@ export default function AdminEmployeesPage() {
 
     return (
         <div className="min-h-screen p-6 md:p-10 bg-slate-50 text-gray-900">
+            {editingEmployee && (
+                <EmployeeEditModal
+                    employee={editingEmployee}
+                    onClose={() => setEditingEmployee(null)}
+                    onSuccess={fetchEmployees}
+                />
+            )}
+
             <header className="mb-10 flex justify-between items-center border-b border-gray-200 pb-6">
                 <div className="flex items-center gap-4">
                     <Link href="/admin/onboard" className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
@@ -128,16 +132,8 @@ export default function AdminEmployeesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="mt-3 pt-2 text-center border-t border-gray-100 relative">
+                                    <div className="mt-3 pt-2 text-center border-t border-gray-100">
                                         <p className="text-[9px] text-gray-400 uppercase font-bold">Face Samples: {emp.image_count}</p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditingEmployee(emp)}
-                                            className="absolute right-0 bottom-0 p-1.5 bg-white text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-gray-100"
-                                            title="Edit Employee"
-                                        >
-                                            <Edit2 size={12} />
-                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -145,15 +141,6 @@ export default function AdminEmployeesPage() {
                     )}
                 </section>
             </div>
-
-            {/* Edit Modal */}
-            {editingEmployee && (
-                <EmployeeEditModal
-                    employee={editingEmployee}
-                    onClose={() => setEditingEmployee(null)}
-                    onSuccess={fetchEmployees}
-                />
-            )}
         </div>
     );
 }

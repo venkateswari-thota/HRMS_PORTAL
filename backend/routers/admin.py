@@ -160,21 +160,29 @@ async def register_employee(
 
 @router.get("/employees")
 async def list_employees():
-    employees = await Employee.find_all().to_list()
-    return [
-        {
-            "emp_id": emp.emp_id,
-            "name": emp.name,
-            "email": emp.email,
-            "personal_email": emp.personal_email or "",
-            "work_location": {"lat": emp.work_lat, "lng": emp.work_lng},
-            "geofence_radius": emp.geofence_radius,
-            "std_check_in": emp.std_check_in or "09:00",
-            "std_check_out": emp.std_check_out or "18:00",
-            "image_count": len(emp.face_photos) if emp.face_photos else 0
-        }
-        for emp in employees
-    ]
+    all_docs = await Employee.get_motor_collection().find().to_list(length=1000)
+    results = []
+    for doc in all_docs:
+        try:
+            # Manually handle missing fields for older records
+            results.append({
+                "emp_id": doc.get("emp_id", "N/A"),
+                "name": doc.get("name", "Unknown"),
+                "email": doc.get("email", "N/A"),
+                "personal_email": doc.get("personal_email", ""),
+                "work_location": {
+                    "lat": doc.get("work_lat", 0.0),
+                    "lng": doc.get("work_lng", 0.0)
+                },
+                "geofence_radius": doc.get("geofence_radius", 100.0),
+                "std_check_in": doc.get("std_check_in", "09:00"),
+                "std_check_out": doc.get("std_check_out", "18:00"),
+                "image_count": len(doc.get("face_photos", [])) if doc.get("face_photos") else 0
+            })
+        except Exception as e:
+            print(f"⚠️ Error parsing employee doc {doc.get('_id')}: {e}")
+            continue
+    return results
 @router.post("/employee/update")
 async def update_employee(data: UpdateEmployeePayload):
     # 1. Validation

@@ -14,13 +14,17 @@ export default function AdminEmployeesPage() {
     const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
     const fetchEmployees = async () => {
+        console.log("🔍 Fetching employees...");
+        setLoading(true); // Ensure loading is reset on manual triggers
         try {
             const token = localStorage.getItem('admin_token') || '';
             const data = await apiRequest('/admin/employees', 'GET', null, token);
-            setEmployees(data);
+            console.log("✅ Fetched employees:", data);
+            setEmployees(Array.isArray(data) ? data : []);
         } catch (e) {
-            console.error('Failed to fetch employees:', e);
+            console.error('❌ Failed to fetch employees:', e);
         } finally {
+            console.log("🔚 Finishing fetch...");
             setLoading(false);
         }
     };

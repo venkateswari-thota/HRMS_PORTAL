@@ -145,18 +145,10 @@ export default function AdminOnboardPage() {
                     </Link>
 
                     <Link href="/admin/leave-balances" className="block">
-                        <div className="bg-white p-6 h-[120px] flex flex-col items-center justify-center border border-gray-200 rounded-xl shadow-sm border-l-4 border-l-purple-500 hover:shadow-md transition-shadow cursor-pointer">
+                        <div className="bg-white p-6 h-[140px] flex flex-col items-center justify-center border border-gray-200 rounded-xl shadow-sm border-l-4 border-l-purple-500 hover:shadow-md transition-shadow cursor-pointer">
                             <h3 className="font-semibold text-lg text-gray-800 mb-1 text-center">Leave Balances</h3>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Setup Menu</p>
-                            <p className="text-xs text-blue-600 underline">Configure Granted →</p>
-                        </div>
-                    </Link>
-
-                    <Link href="/admin/leave-balances-show" className="block">
-                        <div className="bg-white p-6 h-[140px] flex flex-col items-center justify-center border border-gray-200 rounded-xl shadow-sm border-l-4 border-l-indigo-500 hover:shadow-md transition-shadow cursor-pointer">
-                            <h3 className="font-semibold text-lg text-gray-800 mb-1 text-center">Leave Balances</h3>
-                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Dash Board</p>
-                            <p className="text-xs text-indigo-600 underline transition-all">Show Archive →</p>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mb-1">Management Hub</p>
+                            <p className="text-xs text-blue-600 underline">Configure & View All →</p>
                         </div>
                     </Link>
 

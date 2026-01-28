@@ -209,7 +209,6 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
                                 {[
                                     { label: 'Leave Apply', href: '/employee/leave/apply' },
                                     { label: 'Leave Balances', href: '/employee/leave/balances' },
-                                    { label: 'Leave Calendar', href: '/employee/leave/calendar' },
                                     { label: 'Holiday Calendar', href: '/employee/leave/holidays' },
                                 ].map((item) => {
                                     const isActive = pathname === item.href;

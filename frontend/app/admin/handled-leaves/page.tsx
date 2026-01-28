@@ -23,6 +23,8 @@ export default function AdminHandledLeavesPage() {
     const [filterType, setFilterType] = useState<'ALL' | 'EMPLOYEE'>('ALL');
     const [searchId, setSearchId] = useState('');
     const [statusMsg, setStatusMsg] = useState('');
+    const [employees, setEmployees] = useState<{ emp_id: string, name: string }[]>([]);
+    const [searchEmpName, setSearchEmpName] = useState('');
 
     const fetchHistory = async (empId?: string) => {
         setLoading(true);
@@ -54,7 +56,25 @@ export default function AdminHandledLeavesPage() {
         if (filterType === 'ALL') {
             fetchHistory();
         }
+
+        // Fetch employees list for dropdown
+        const fetchEmployees = async () => {
+            try {
+                const data = await apiRequest('/admin/employees', 'GET', null, token);
+                setEmployees(data);
+            } catch (e) {
+                console.error("Failed to fetch employees", e);
+            }
+        };
+        fetchEmployees();
     }, [filterType]);
+
+    // Update searchEmpName whenever searchId or employees change
+    useEffect(() => {
+        const emp = employees.find(e => e.emp_id === searchId);
+        if (emp) setSearchEmpName(emp.name);
+        else setSearchEmpName('');
+    }, [searchId, employees]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -134,23 +154,38 @@ export default function AdminHandledLeavesPage() {
 
                         {filterType === 'EMPLOYEE' && (
                             <form onSubmit={handleSearch} className="flex-1 space-y-2 animate-in slide-in-from-left duration-300">
-                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Search Employee ID</label>
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Search Employee ID</label>
+                                    {searchEmpName && (
+                                        <span className="text-[10px] font-bold text-blue-600 animate-in fade-in slide-in-from-right-1">
+                                            {searchEmpName}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="flex gap-2">
                                     <div className="relative flex-1">
-                                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
-                                        <input
-                                            type="text"
-                                            placeholder="e.g. EMP123"
-                                            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-medium"
+                                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 pointer-events-none z-10" />
+                                        <select
+                                            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all text-sm font-bold text-gray-700 appearance-none cursor-pointer"
                                             value={searchId}
                                             onChange={(e) => setSearchId(e.target.value)}
                                             required
-                                        />
+                                        >
+                                            <option value="" disabled>Select Employee ID...</option>
+                                            {employees.map(emp => (
+                                                <option key={emp.emp_id} value={emp.emp_id}>
+                                                    {emp.emp_id}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-300">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                                        </div>
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-indigo-100"
                                     >
                                         {loading ? '...' : <Search size={16} />}
                                         Search

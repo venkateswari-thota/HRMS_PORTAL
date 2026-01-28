@@ -24,12 +24,32 @@ function LeaveBalanceForm() {
         paid_leave: 0
     });
 
+    const [employees, setEmployees] = useState<{ emp_id: string, name: string }[]>([]);
+    const [selectedEmpName, setSelectedEmpName] = useState('');
+
     useEffect(() => {
+        fetchEmployees();
         if (paramEmpId) {
             setIsEditMode(true);
             fetchExistingBalances(paramEmpId);
         }
     }, [paramEmpId]);
+
+    const fetchEmployees = async () => {
+        try {
+            const token = localStorage.getItem('admin_token');
+            const data = await apiRequest('/admin/employees', 'GET', null, token || '');
+            setEmployees(data);
+
+            // If already have emp_id, set the name
+            if (formData.emp_id) {
+                const emp = data.find((e: any) => e.emp_id === formData.emp_id);
+                if (emp) setSelectedEmpName(emp.name);
+            }
+        } catch (e) {
+            console.error("Failed to fetch employees", e);
+        }
+    };
 
     const fetchExistingBalances = async (id: string) => {
         try {
@@ -45,11 +65,25 @@ function LeaveBalanceForm() {
                     wfh_contract: data.wfh_contract || 0,
                     paid_leave: data.paid_leave || 0
                 });
+
+                // Set name if employees already loaded
+                const emp = employees.find(e => e.emp_id === id);
+                if (emp) setSelectedEmpName(emp.name);
             }
         } catch (e) {
             console.error("Failed to fetch balance for edit", e);
         }
     };
+
+    // Update selectedEmpName whenever emp_id changes or employees load
+    useEffect(() => {
+        const emp = employees.find(e => e.emp_id === formData.emp_id);
+        if (emp) {
+            setSelectedEmpName(emp.name);
+        } else if (!formData.emp_id) {
+            setSelectedEmpName('');
+        }
+    }, [formData.emp_id, employees]);
 
     const categories = [
         { label: "Loss Of Pay", key: "loss_of_pay" },
@@ -81,6 +115,7 @@ function LeaveBalanceForm() {
                     wfh_contract: 0,
                     paid_leave: 0
                 });
+                setSelectedEmpName('');
                 setTimeout(() => setStatusMsg(''), 3000);
             }
         } catch (e: any) {
@@ -114,21 +149,44 @@ function LeaveBalanceForm() {
 
             <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8">
                 <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Employee ID Section */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2 px-1">
-                            <User size={14} /> Employee ID {isEditMode && <span className="text-[10px] text-indigo-400 opacity-60">(Locked)</span>}
-                        </label>
+                    {/* Employee ID Selection Section */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center px-1">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <User size={14} /> {isEditMode ? 'Employee ID (Locked)' : 'Select Employee'}
+                            </label>
+                            {selectedEmpName && (
+                                <span className="text-sm font-bold text-blue-600 animate-in fade-in slide-in-from-right-2">
+                                    {selectedEmpName}
+                                </span>
+                            )}
+                        </div>
                         <div className="relative">
-                            <input
-                                type="text" required
-                                placeholder="e.g. PRAGEMP001"
-                                disabled={isEditMode}
-                                className={`w-full p-4 border rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold transition-all ${isEditMode ? 'bg-slate-50 border-slate-100 text-gray-400 cursor-not-allowed' : 'bg-slate-50 border-slate-200 text-gray-700'}`}
-                                value={formData.emp_id}
-                                onChange={e => setFormData({ ...formData, emp_id: e.target.value })}
-                            />
-                            {isEditMode && <Info size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />}
+                            {isEditMode ? (
+                                <div className="w-full p-4 bg-slate-50 border border-slate-100 rounded-xl font-bold text-gray-400 flex items-center justify-between">
+                                    <span>{formData.emp_id}</span>
+                                    <Info size={16} className="text-slate-300" />
+                                </div>
+                            ) : (
+                                <select
+                                    required
+                                    className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-700 appearance-none transition-all cursor-pointer"
+                                    value={formData.emp_id}
+                                    onChange={e => setFormData({ ...formData, emp_id: e.target.value })}
+                                >
+                                    <option value="" disabled>Choose an employee...</option>
+                                    {employees.map(emp => (
+                                        <option key={emp.emp_id} value={emp.emp_id}>
+                                            {emp.emp_id} - {emp.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
+                            {!isEditMode && (
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                                </div>
+                            )}
                         </div>
                     </div>
 

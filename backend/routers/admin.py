@@ -12,6 +12,15 @@ router = APIRouter(prefix="/admin", tags=["Admin Operations"])
 
 from backend.email_utils import send_credentials_email
 
+class UpdateEmployeePayload(BaseModel):
+    emp_id: str
+    personal_email: EmailStr
+    work_lat: float
+    work_lng: float
+    geofence_radius: float
+    std_check_in: str
+    std_check_out: str
+
 # Allowed image formats
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
@@ -166,6 +175,28 @@ async def list_employees():
         }
         for emp in employees
     ]
+@router.post("/employee/update")
+async def update_employee(data: UpdateEmployeePayload):
+    # 1. Validation
+    if not data.personal_email.lower().endswith("@gmail.com"):
+        raise HTTPException(status_code=400, detail="enter the valid mail")
+    
+    # 2. Find Employee
+    emp = await Employee.find_one(Employee.emp_id == data.emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # 3. Update Fields
+    emp.personal_email = data.personal_email
+    emp.work_lat = data.work_lat
+    emp.work_lng = data.work_lng
+    emp.geofence_radius = data.geofence_radius
+    emp.std_check_in = data.std_check_in
+    emp.std_check_out = data.std_check_out
+    
+    await emp.save()
+    return {"message": "Employee updated successfully"}
+
 @router.get("/requests")
 async def get_all_requests():
     """

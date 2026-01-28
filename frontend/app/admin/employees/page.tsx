@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import EmployeeRegisterForm from '@/components/admin/EmployeeRegisterForm';
-import { Users, Mail, MapPin, Shield, ArrowLeft, Clock } from 'lucide-react';
+import EmployeeEditModal from '@/components/admin/EmployeeEditModal';
+import { Users, Mail, MapPin, Shield, ArrowLeft, Clock, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminEmployeesPage() {
     const router = useRouter();
     const [employees, setEmployees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
     const fetchEmployees = async () => {
         try {
@@ -122,8 +124,16 @@ export default function AdminEmployeesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="mt-3 pt-2 text-center border-t border-gray-100">
+                                    <div className="mt-3 pt-2 text-center border-t border-gray-100 relative">
                                         <p className="text-[9px] text-gray-400 uppercase font-bold">Face Samples: {emp.image_count}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setEditingEmployee(emp)}
+                                            className="absolute right-0 bottom-0 p-1.5 bg-white text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-sm border border-gray-100"
+                                            title="Edit Employee"
+                                        >
+                                            <Edit2 size={12} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -131,6 +141,15 @@ export default function AdminEmployeesPage() {
                     )}
                 </section>
             </div>
+
+            {/* Edit Modal */}
+            {editingEmployee && (
+                <EmployeeEditModal
+                    employee={editingEmployee}
+                    onClose={() => setEditingEmployee(null)}
+                    onSuccess={fetchEmployees}
+                />
+            )}
         </div>
     );
 }

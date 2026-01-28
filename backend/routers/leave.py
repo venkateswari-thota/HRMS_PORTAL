@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import List
 from datetime import datetime
-from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday
+from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
+from backend.email_utils import send_leave_application_email, send_leave_review_email
 
 router = APIRouter(prefix="/leave", tags=["Leave Management"])
 
@@ -109,10 +110,31 @@ async def get_emp_balances(emp_id: str):
     return results
 
 @router.post("/apply")
-async def apply_leave(data: dict):
+async def apply_leave(data: dict, background_tasks: BackgroundTasks):
     # data: { emp_id, leave_type, from_date, to_date, from_session, to_session, reason }
     req = LeaveRequest(**data)
     await req.create()
+
+    # Get employee name
+    emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
+    emp_name = emp.name if emp else "Unknown Employee"
+
+    # Get admin email
+    admin = await Admin.find_one()
+    admin_email = admin.email if admin else "venkateswarithota456@gmail.com"
+
+    # Send Notification Email to Admin
+    background_tasks.add_task(
+        send_leave_application_email,
+        emp_name=emp_name,
+        admin_email=admin_email,
+        emp_id=data["emp_id"],
+        leave_type=data["leave_type"],
+        from_date=data["from_date"],
+        to_date=data["to_date"],
+        reason=data["reason"]
+    )
+
     return {"message": "Leave application submitted successfully", "id": str(req.id)}
 
 @router.get("/pending")
@@ -178,12 +200,17 @@ async def admin_get_leave_requests():
     return results
 
 @router.post("/admin/review")
-async def review_leave(data: dict):
+async def review_leave(data: dict, background_tasks: BackgroundTasks):
     # data: { request_id, action: 'APPROVE' | 'REJECT' }
     req = await LeaveRequest.get(data["request_id"])
     if not req:
         raise HTTPException(status_code=404, detail="Leave request not found")
     
+    # Get employee details for email
+    emp = await Employee.find_one(Employee.emp_id == req.emp_id)
+    if not emp:
+         raise HTTPException(status_code=404, detail="Employee not found")
+
     if data["action"] == "APPROVE":
         approved = LeaveApproved(
             emp_id=req.emp_id,
@@ -198,6 +225,18 @@ async def review_leave(data: dict):
         )
         await approved.create()
         await req.delete()
+
+        # Notify Employee
+        background_tasks.add_task(
+            send_leave_review_email,
+            emp_name=emp.name,
+            emp_email=emp.personal_email,
+            action="APPROVED",
+            leave_type=req.leave_type,
+            from_date=req.from_date,
+            to_date=req.to_date
+        )
+
         return {"message": "Leave Approved Successfully"}
     
     elif data["action"] == "REJECT":
@@ -214,6 +253,18 @@ async def review_leave(data: dict):
         )
         await rejected.create()
         await req.delete()
+
+        # Notify Employee
+        background_tasks.add_task(
+            send_leave_review_email,
+            emp_name=emp.name,
+            emp_email=emp.personal_email,
+            action="REJECTED",
+            leave_type=req.leave_type,
+            from_date=req.from_date,
+            to_date=req.to_date
+        )
+
         return {"message": "Leave Rejected Successfully"}
     
     raise HTTPException(status_code=400, detail="Invalid Action")

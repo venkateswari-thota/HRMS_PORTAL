@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import List
 from datetime import datetime
 from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
-from backend.email_utils import send_leave_application_email, send_leave_review_email
+from backend.email_utils import send_leave_request_email, send_leave_status_email
 
 router = APIRouter(prefix="/leave", tags=["Leave Management"])
 
@@ -115,25 +115,25 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
     req = LeaveRequest(**data)
     await req.create()
 
-    # Get employee name
-    emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
-    emp_name = emp.name if emp else "Unknown Employee"
-
-    # Get admin email
-    admin = await Admin.find_one()
-    admin_email = admin.email if admin else "venkateswarithota456@gmail.com"
-
-    # Send Notification Email to Admin
-    background_tasks.add_task(
-        send_leave_application_email,
-        emp_name=emp_name,
-        admin_email=admin_email,
-        emp_id=data["emp_id"],
-        leave_type=data["leave_type"],
-        from_date=data["from_date"],
-        to_date=data["to_date"],
-        reason=data["reason"]
-    )
+    # Email Logic
+    try:
+        emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
+        admin = await Admin.find_one()
+        admin_email = admin.email if admin else "admin@pragyatmika.com"
+        
+        if emp:
+            background_tasks.add_task(
+                send_leave_request_email,
+                emp_name=emp.name,
+                admin_email=admin_email,
+                emp_id=emp.emp_id,
+                leave_type=data["leave_type"],
+                from_date=data["from_date"],
+                to_date=data["to_date"],
+                reason=data["reason"]
+            )
+    except Exception as e:
+        print(f"⚠️ Failed to queue leave request email: {e}")
 
     return {"message": "Leave application submitted successfully", "id": str(req.id)}
 
@@ -206,11 +206,10 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks):
     if not req:
         raise HTTPException(status_code=404, detail="Leave request not found")
     
-    # Get employee details for email
+    # Get Employee for notification
     emp = await Employee.find_one(Employee.emp_id == req.emp_id)
-    if not emp:
-         raise HTTPException(status_code=404, detail="Employee not found")
 
+    status = ""
     if data["action"] == "APPROVE":
         approved = LeaveApproved(
             emp_id=req.emp_id,
@@ -225,19 +224,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks):
         )
         await approved.create()
         await req.delete()
-
-        # Notify Employee
-        background_tasks.add_task(
-            send_leave_review_email,
-            emp_name=emp.name,
-            emp_email=emp.personal_email,
-            action="APPROVED",
-            leave_type=req.leave_type,
-            from_date=req.from_date,
-            to_date=req.to_date
-        )
-
-        return {"message": "Leave Approved Successfully"}
+        status = "APPROVED"
     
     elif data["action"] == "REJECT":
         rejected = LeaveRejected(
@@ -253,21 +240,23 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks):
         )
         await rejected.create()
         await req.delete()
+        status = "REJECTED"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid Action")
 
-        # Notify Employee
+    # Email logic for status update
+    if emp and emp.personal_email:
         background_tasks.add_task(
-            send_leave_review_email,
-            emp_name=emp.name,
+            send_leave_status_email,
             emp_email=emp.personal_email,
-            action="REJECTED",
+            emp_name=emp.name,
+            status=status,
             leave_type=req.leave_type,
             from_date=req.from_date,
             to_date=req.to_date
         )
 
-        return {"message": "Leave Rejected Successfully"}
-    
-    raise HTTPException(status_code=400, detail="Invalid Action")
+    return {"message": f"Leave {status.capitalize()} Successfully"}
 
 # --- Holiday Calendar Endpoints (at bottom to avoid shadowing) ---
 

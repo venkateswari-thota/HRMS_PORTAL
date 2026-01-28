@@ -97,26 +97,25 @@ def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, 
         print(f"❌ Failed to send email: {e}")
         return False
 
-def send_leave_application_email(emp_name: str, admin_email: str, emp_id: str, leave_type: str, from_date: str, to_date: str, reason: str):
+def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, leave_type: str, from_date: str, to_date: str, reason: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = admin_email
-        msg['Subject'] = f"New Leave Application: {emp_name} ({emp_id})"
+        msg['Subject'] = f"New Leave Application: {leave_type} - {emp_name}"
 
         body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-            <h2 style="color: #2563eb;">New Leave Application</h2>
-            <p><strong>Employee Name:</strong> {emp_name}</p>
-            <p><strong>Employee ID:</strong> {emp_id}</p>
+            <h2 style="color: #4f46e5;">New Leave Request Received</h2>
+            <p><strong>Employee:</strong> {emp_name} ({emp_id})</p>
             <p><strong>Leave Type:</strong> {leave_type}</p>
             <p><strong>Duration:</strong> {from_date} to {to_date}</p>
             <p><strong>Reason:</strong> {reason}</p>
-            <p><strong>Applied On:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
             <br>
-            <p>Please login to the Admin Portal to review this application.</p>
-            <p>Best Regards,<br>HRMS Notification System</p>
+            <p>Please login to the Admin Portal to review and process this application.</p>
+            <br>
+            <p>Best Regards,<br>HRMS System</p>
         </body>
         </html>
         """
@@ -127,31 +126,32 @@ def send_leave_application_email(emp_name: str, admin_email: str, emp_id: str, l
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave application email sent to admin: {admin_email}")
+        print(f"✅ Leave Request Email sent to admin: {admin_email}")
         return True
     except Exception as e:
-        print(f"❌ Failed to send leave application email: {e}")
+        print(f"❌ Failed to send leave request email: {e}")
         return False
 
-def send_leave_review_email(emp_name: str, emp_email: str, action: str, leave_type: str, from_date: str, to_date: str):
+def send_leave_status_email(emp_email: str, emp_name: str, status: str, leave_type: str, from_date: str, to_date: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = emp_email
-        msg['Subject'] = f"Leave Application Status: {action}"
+        msg['Subject'] = f"Leave Application Status Update: {status}"
 
-        status_color = "#16a34a" if action == "APPROVED" else "#dc2626"
+        # Status color
+        color = "#16a34a" if status == "APPROVED" else "#dc2626"
 
         body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2>Leave Application Update</h2>
             <p>Dear {emp_name},</p>
-            <p>Your leave application for <strong>{leave_type}</strong> from <strong>{from_date}</strong> to <strong>{to_date}</strong> has been <strong style="color: {status_color}; text-decoration: underline;">{action}</strong> by the administration.</p>
+            <p>Your leave application for <strong>{leave_type}</strong> ({from_date} to {to_date}) has been <strong style="color: {color};">{status}</strong>.</p>
             <br>
-            <p>You can check the details in your Employee Portal.</p>
+            <p>You can check your updated leave balance in the Employee Portal.</p>
             <br>
-            <p>Best Regards,<br>HR Team<br>Pragyatmika Intelligence</p>
+            <p>Best Regards,<br>HR Team</p>
         </body>
         </html>
         """
@@ -162,8 +162,8 @@ def send_leave_review_email(emp_name: str, emp_email: str, action: str, leave_ty
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave review email sent to employee: {emp_email}")
+        print(f"✅ Leave Status Email sent to employee: {emp_email}")
         return True
     except Exception as e:
-        print(f"❌ Failed to send leave review email: {e}")
+        print(f"❌ Failed to send leave status email: {e}")
         return False

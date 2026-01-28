@@ -230,7 +230,7 @@ export default function AdminOnboardPage() {
                                             <Scale size={24} />
                                         </div>
                                         <div className="flex-1">
-                                            <h4 className="font-bold text-gray-800 text-sm">Policy & Balances</h4>
+                                            <h4 className="font-bold text-gray-800 text-sm">Leave Entitlements</h4>
                                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mt-0.5">Quota Configuration</p>
                                         </div>
                                         <div className="w-8 h-8 flex items-center justify-center text-gray-300">

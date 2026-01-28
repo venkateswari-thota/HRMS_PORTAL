@@ -84,44 +84,56 @@ export default function AdminApprovedPage() {
                 </div>
 
                 {/* Filter & Detail Row */}
-                <div className="max-w-3xl">
-                    <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 p-8 space-y-4">
-                        <div className="flex items-center justify-between px-1">
-                            {selectedEmployee ? (
+                {/* Filter & Detail Row */}
+                <div className="max-w-4xl">
+                    <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 space-y-4">
+                        {/* Selected Employee Display (Top Left) */}
+                        <div className="h-6 flex items-center px-1">
+                            {selectedEmployee && (
                                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
                                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Selected:</p>
-                                    <p className="text-sm font-black text-green-600">{selectedEmployee.name}</p>
+                                    <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest leading-none">Selected:</p>
+                                    <p className="text-sm font-black text-green-600 leading-none">{selectedEmployee.name}</p>
                                 </div>
-                            ) : (
-                                <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest px-1">Filter by Employee ID</p>
                             )}
-
-                            <div className="flex items-center gap-4 text-[10px] font-bold text-gray-400">
-                                <span><span className="text-green-600 font-black">{filteredRequests.length}</span> Shown</span>
-                                <span className="w-1 h-1 bg-gray-200 rounded-full"></span>
-                                <span><span className="text-gray-600 font-black">{approvedRequests.length}</span> Total</span>
-                            </div>
+                            {!selectedEmployee && selectedEmpId === 'all' && (
+                                <p className="text-[11px] font-black text-gray-300 uppercase tracking-widest px-1 leading-none">Viewing All Workforce Records</p>
+                            )}
                         </div>
 
-                        <div className="relative group">
-                            <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
-                                <User size={20} />
+                        <div className="flex flex-col md:flex-row items-stretch gap-4">
+                            {/* Selection Dropdown */}
+                            <div className="relative group flex-1 w-full">
+                                <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                                    <User size={20} />
+                                </div>
+                                <select
+                                    value={selectedEmpId}
+                                    onChange={(e) => setSelectedEmpId(e.target.value)}
+                                    className="w-full pl-16 pr-14 py-4.5 bg-slate-50 border border-slate-100 rounded-[1.8rem] outline-none focus:ring-4 focus:ring-green-500/10 focus:bg-white focus:border-green-200 transition-all text-base font-black text-gray-700 appearance-none cursor-pointer shadow-inner h-full"
+                                >
+                                    <option value="all">View All IDs</option>
+                                    {employees.map(emp => (
+                                        <option key={emp.emp_id} value={emp.emp_id}>
+                                            {emp.emp_id}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
+                                    <Filter size={18} />
+                                </div>
                             </div>
-                            <select
-                                value={selectedEmpId}
-                                onChange={(e) => setSelectedEmpId(e.target.value)}
-                                className="w-full pl-14 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-[1.5rem] outline-none focus:ring-4 focus:ring-green-500/10 focus:bg-white focus:border-green-200 transition-all text-base font-bold text-gray-700 appearance-none cursor-pointer shadow-inner"
-                            >
-                                <option value="all" className="font-bold py-4">All Active Workforce Members</option>
-                                {employees.map(emp => (
-                                    <option key={emp.emp_id} value={emp.emp_id} className="font-bold py-4">
-                                        {emp.emp_id}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
-                                <Filter size={16} />
+
+                            {/* Stats Cards (Right Side) */}
+                            <div className="flex items-center gap-3 shrink-0">
+                                <div className="px-8 py-3 bg-green-50/50 rounded-[1.8rem] border border-green-100 flex flex-col items-center justify-center min-w-[110px] hover:bg-green-100/50 transition-colors group/stat">
+                                    <p className="text-[10px] font-black text-green-400 uppercase tracking-tighter leading-none mb-1 group-hover/stat:text-green-600 transition-colors">Shown</p>
+                                    <p className="text-2xl font-black text-green-600 leading-none">{filteredRequests.length}</p>
+                                </div>
+                                <div className="px-8 py-3 bg-slate-50 rounded-[1.8rem] border border-slate-100 flex flex-col items-center justify-center min-w-[110px] hover:bg-slate-100 transition-colors group/stat">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter leading-none mb-1 group-hover/stat:text-slate-600 transition-colors">Total</p>
+                                    <p className="text-2xl font-black text-slate-600 leading-none">{approvedRequests.length}</p>
+                                </div>
                             </div>
                         </div>
                     </div>

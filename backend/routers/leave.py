@@ -3,8 +3,26 @@ from typing import List
 from datetime import datetime
 from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
 from backend.email_utils import send_leave_request_email, send_leave_status_email
+from backend.utils import SECRET_KEY, ALGORITHM
+from jose import jwt
+from fastapi import Header
 
 router = APIRouter(prefix="/leave", tags=["Leave Management"])
+
+# --- Helper Dependencies ---
+
+async def get_current_admin_email(authorization: str = Header(...)):
+    try:
+        token = authorization.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        email = payload.get("sub")
+        if not email:
+             raise HTTPException(status_code=401, detail="Invalid Token")
+        return email
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Token")
 
 # --- Leave Balances Endpoints ---
 
@@ -118,6 +136,8 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
     # Email Logic
     try:
         emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
+        # Fetch the primary admin specifically if needed, 
+        # but for application we'll send to the system admin email or first found admin
         admin = await Admin.find_one()
         admin_email = admin.email if admin else "admin@pragyatmika.com"
         
@@ -127,6 +147,7 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
                 emp_name=emp.name,
                 admin_email=admin_email,
                 emp_id=emp.emp_id,
+                emp_org_email=emp.email, # Strictly using organizational email
                 leave_type=data["leave_type"],
                 from_date=data["from_date"],
                 to_date=data["to_date"],
@@ -200,7 +221,7 @@ async def admin_get_leave_requests():
     return results
 
 @router.post("/admin/review")
-async def review_leave(data: dict, background_tasks: BackgroundTasks):
+async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_email: str = Depends(get_current_admin_email)):
     # data: { request_id, action: 'APPROVE' | 'REJECT' }
     req = await LeaveRequest.get(data["request_id"])
     if not req:
@@ -210,6 +231,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks):
     emp = await Employee.find_one(Employee.emp_id == req.emp_id)
 
     status = ""
+    # ... (status update logic)
     if data["action"] == "APPROVE":
         approved = LeaveApproved(
             emp_id=req.emp_id,
@@ -245,11 +267,12 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=400, detail="Invalid Action")
 
     # Email logic for status update
-    if emp and emp.personal_email:
+    if emp:
         background_tasks.add_task(
             send_leave_status_email,
-            emp_email=emp.personal_email,
+            emp_org_email=emp.email, # Strictly using organizational email
             emp_name=emp.name,
+            admin_email=admin_email, # Dynamic from active session
             status=status,
             leave_type=req.leave_type,
             from_date=req.from_date,

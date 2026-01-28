@@ -97,11 +97,12 @@ def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, 
         print(f"❌ Failed to send email: {e}")
         return False
 
-def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, leave_type: str, from_date: str, to_date: str, reason: str):
+def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, emp_org_email: str, leave_type: str, from_date: str, to_date: str, reason: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = admin_email
+        msg['Reply-To'] = emp_org_email
         msg['Subject'] = f"New Leave Application: {leave_type} - {emp_name}"
 
         body = f"""
@@ -109,6 +110,7 @@ def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, leave
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2 style="color: #4f46e5;">New Leave Request Received</h2>
             <p><strong>Employee:</strong> {emp_name} ({emp_id})</p>
+            <p><strong>Official Email:</strong> {emp_org_email}</p>
             <p><strong>Leave Type:</strong> {leave_type}</p>
             <p><strong>Duration:</strong> {from_date} to {to_date}</p>
             <p><strong>Reason:</strong> {reason}</p>
@@ -126,17 +128,18 @@ def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, leave
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave Request Email sent to admin: {admin_email}")
+        print(f"✅ Leave Request Email sent to admin: {admin_email} (From: {emp_org_email})")
         return True
     except Exception as e:
         print(f"❌ Failed to send leave request email: {e}")
         return False
 
-def send_leave_status_email(emp_email: str, emp_name: str, status: str, leave_type: str, from_date: str, to_date: str):
+def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, leave_type: str, from_date: str, to_date: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
-        msg['To'] = emp_email
+        msg['To'] = emp_org_email
+        msg['Reply-To'] = admin_email
         msg['Subject'] = f"Leave Application Status Update: {status}"
 
         # Status color
@@ -147,7 +150,7 @@ def send_leave_status_email(emp_email: str, emp_name: str, status: str, leave_ty
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2>Leave Application Update</h2>
             <p>Dear {emp_name},</p>
-            <p>Your leave application for <strong>{leave_type}</strong> ({from_date} to {to_date}) has been <strong style="color: {color};">{status}</strong>.</p>
+            <p>Your leave application for <strong>{leave_type}</strong> ({from_date} to {to_date}) has been <strong style="color: {color};">{status}</strong> by Management ({admin_email}).</p>
             <br>
             <p>You can check your updated leave balance in the Employee Portal.</p>
             <br>
@@ -162,7 +165,7 @@ def send_leave_status_email(emp_email: str, emp_name: str, status: str, leave_ty
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave Status Email sent to employee: {emp_email}")
+        print(f"✅ Leave Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
         return True
     except Exception as e:
         print(f"❌ Failed to send leave status email: {e}")

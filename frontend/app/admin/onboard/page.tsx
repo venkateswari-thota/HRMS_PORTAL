@@ -153,10 +153,10 @@ export default function AdminOnboardPage() {
                     </Link>
 
                     <Link href="/admin/holiday-setup" className="block">
-                        <div className="bg-white p-6 h-[120px] flex flex-col items-center justify-center border border-gray-200 rounded-[2rem] shadow-sm border-l-4 border-l-orange-500 hover:shadow-md transition-shadow cursor-pointer">
-                            <h3 className="font-bold text-lg text-gray-800 mb-1 text-center">Holiday Setup</h3>
-                            <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Upload Year</p>
-                            <p className="text-xs text-orange-600 underline">Add Holidays →</p>
+                        <div className="bg-white p-6 h-[140px] flex flex-col items-center justify-center border border-gray-200 rounded-[2rem] shadow-sm border-l-4 border-l-orange-500 hover:shadow-md transition-shadow cursor-pointer">
+                            <h3 className="font-bold text-lg text-gray-800 mb-1 text-center">Holiday Management</h3>
+                            <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Calendar & Setup</p>
+                            <p className="text-xs text-orange-600 underline">Manage Hub →</p>
                         </div>
                     </Link>
 

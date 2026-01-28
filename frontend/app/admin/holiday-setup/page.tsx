@@ -160,10 +160,10 @@ function HolidaySetupForm() {
                     </button>
                     <div>
                         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                            Holiday Setup {month ? ` - ${monthNames[month - 1]}` : ''}
+                            Holiday Management {month ? ` - ${monthNames[month - 1]}` : ''}
                         </h1>
                         <p className="text-gray-500 text-sm mt-1">
-                            {month ? `Modifying holidays for ${monthNames[month - 1]} ${year}` : `Configure public holidays for ${year}`}
+                            {month ? `Modifying holidays for ${monthNames[month - 1]} ${year}` : `Configure & Review public holidays for ${year}`}
                         </p>
                     </div>
                 </div>

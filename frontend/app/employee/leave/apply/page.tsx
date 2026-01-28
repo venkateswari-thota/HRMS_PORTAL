@@ -9,8 +9,6 @@ export default function LeaveApplyPage() {
     const [activeTab, setActiveTab] = useState<'apply' | 'pending' | 'history'>('apply');
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
-    const [showModal, setShowModal] = useState(false);
-    const [modalMsg, setModalMsg] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -88,8 +86,7 @@ export default function LeaveApplyPage() {
 
     const handleDateChange = (field: 'from_date' | 'to_date', value: string) => {
         if (isNonWorkingDay(value)) {
-            setModalMsg("Looks like it's already your non working day. Please pick different date(s) to apply.");
-            setShowModal(true);
+            alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
             return; // Don't update state to block the selection
         }
 
@@ -98,8 +95,7 @@ export default function LeaveApplyPage() {
         // If both dates are set, check the entire range
         if (newFormData.from_date && newFormData.to_date) {
             if (!validateDateRange(newFormData.from_date, newFormData.to_date)) {
-                setModalMsg("The selected range includes non-working days (Sundays or holidays). Please pick different dates.");
-                setShowModal(true);
+                alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
                 return;
             }
         }
@@ -112,8 +108,7 @@ export default function LeaveApplyPage() {
 
         // Final safety validation
         if (!validateDateRange(formData.from_date, formData.to_date)) {
-            setModalMsg("Looks like it's already your non working day. Please pick different date(s) to apply.");
-            setShowModal(true);
+            alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
             return;
         }
 
@@ -341,29 +336,6 @@ export default function LeaveApplyPage() {
                             </div>
                         ))
                     )}
-                </div>
-            )}
-
-            {/* Custom Validation Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 max-w-md w-full text-center space-y-6 animate-in zoom-in-95 duration-200">
-                        <div className="mx-auto w-16 h-16 bg-red-50 rounded-full flex items-center justify-center">
-                            <XCircle className="text-red-500" size={32} />
-                        </div>
-                        <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-gray-900 leading-tight">Invalid Date Selected</h3>
-                            <p className="text-gray-600">
-                                {modalMsg}
-                            </p>
-                        </div>
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all shadow-lg active:scale-[0.98]"
-                        >
-                            Got it
-                        </button>
-                    </div>
                 </div>
             )}
         </div>

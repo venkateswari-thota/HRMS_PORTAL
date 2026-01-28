@@ -168,13 +168,6 @@ export default function AdminOnboardPage() {
                         </div>
                     </Link>
 
-                    <Link href="/admin/holiday-show" className="block">
-                        <div className="bg-white p-6 h-[120px] flex flex-col items-center justify-center border border-gray-200 rounded-[2rem] shadow-sm border-l-4 border-l-blue-600 hover:shadow-md transition-shadow cursor-pointer">
-                            <h3 className="font-bold text-lg text-gray-800 mb-1 text-center">Holiday Show</h3>
-                            <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1">Manage Dashboard</p>
-                            <p className="text-xs text-blue-600 underline transition-all">View & Edit →</p>
-                        </div>
-                    </Link>
                 </div>
             </div>
         </div>

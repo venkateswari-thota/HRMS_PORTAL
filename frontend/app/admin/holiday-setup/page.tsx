@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Trash2, Save, XCircle, Calendar, Info } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Save, XCircle, Calendar, Info, ChevronLeft, ChevronRight, Edit3 } from 'lucide-react';
 
 interface HolidayRow {
     date: string;
@@ -26,10 +26,18 @@ function HolidaySetupForm() {
     const [loading, setLoading] = useState(false);
     const [statusMsg, setStatusMsg] = useState('');
 
+    // Calendar State
+    const [allHolidays, setAllHolidays] = useState<any[]>([]);
+    const [calendarLoading, setCalendarLoading] = useState(true);
+
     const fetchHolidays = async (selectedYear: number, selectedMonth: number | null) => {
         try {
             const token = localStorage.getItem('admin_token');
             const data = await apiRequest(`/leave/holidays?year=${selectedYear}`, 'GET', null, token || '');
+
+            // For Calendar
+            setAllHolidays(data);
+            setCalendarLoading(false);
 
             let fetchedHolidays: HolidayRow[] = [];
             if (data.length > 0) {
@@ -53,6 +61,7 @@ function HolidaySetupForm() {
             setInitialHolidays(JSON.parse(JSON.stringify(fetchedHolidays)));
         } catch (e) {
             console.error("Failed to fetch holidays", e);
+            setCalendarLoading(false);
         }
     };
 
@@ -94,8 +103,11 @@ function HolidaySetupForm() {
             const validHolidays = holidays.filter(h => h.date && h.reason);
             await apiRequest('/leave/admin/holidays/setup', 'POST', { year, month, holidays: validHolidays }, token || '');
 
-            // Immediate redirection after successful save
-            router.push(`/admin/holiday-show?year=${year}`);
+            // Refresh data instead of redirecting
+            fetchHolidays(year, month);
+            setStatusMsg('✅ Successfully saved!');
+            setTimeout(() => setStatusMsg(''), 3000);
+            setLoading(false);
         } catch (e: any) {
             setStatusMsg('Error: ' + e.message);
             setLoading(false);
@@ -114,6 +126,23 @@ function HolidaySetupForm() {
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December"
     ];
+
+    const getHolidaysByMonth = (monthIndex: number) => {
+        return allHolidays.filter(h => {
+            const date = new Date(h.date);
+            return date.getMonth() === monthIndex;
+        });
+    };
+
+    const getDayName = (dateStr: string) => {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return days[new Date(dateStr).getDay()];
+    };
+
+    const handleEditMonth = (m: number) => {
+        setMonth(m);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -138,7 +167,16 @@ function HolidaySetupForm() {
                 </div>
 
                 <div className="flex items-center gap-2 bg-white p-2 rounded-xl border border-gray-200 shadow-sm">
-                    <span className="text-xs font-bold text-gray-400 px-2 uppercase tracking-widest">Year {year}</span>
+                    <button onClick={() => setYear(year - 1)} className="p-1.5 hover:bg-slate-50 rounded-lg transition-all text-gray-400 hover:text-blue-600 active:scale-90">
+                        <ChevronLeft size={18} />
+                    </button>
+                    <div className="flex flex-col items-center min-w-[60px]">
+                        <span className="text-[8px] font-black text-gray-400 tracking-[0.2em] uppercase leading-none mb-1">Year</span>
+                        <span className="text-sm font-black text-blue-600 leading-none">{year}</span>
+                    </div>
+                    <button onClick={() => setYear(year + 1)} className="p-1.5 hover:bg-slate-50 rounded-lg transition-all text-gray-400 hover:text-blue-600 active:scale-90">
+                        <ChevronRight size={18} />
+                    </button>
                 </div>
             </div>
 
@@ -247,6 +285,94 @@ function HolidaySetupForm() {
                     </div>
                 </form>
             </div>
+
+            {/* Bottom Section: Calendar Grid from Holiday Show */}
+            <div className="pt-10 space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                        <Calendar size={20} />
+                    </div>
+                    <h2 className="text-2xl font-black text-gray-800 tracking-tight">Monthly Review Dashboard</h2>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {monthNames.map((mName, idx) => {
+                        const monthHolidays = getHolidaysByMonth(idx);
+                        const isActive = month === idx + 1;
+                        return (
+                            <div
+                                key={mName}
+                                className={`bg-white rounded-[2rem] border ${isActive ? 'border-blue-400 ring-4 ring-blue-50' : 'border-gray-100 shadow-sm'} hover:shadow-md transition-all duration-300 flex flex-col h-[300px] overflow-hidden group`}
+                            >
+                                <div className={`p-5 border-b border-gray-50 flex justify-between items-center ${isActive ? 'bg-blue-50/50' : 'bg-gray-50/20'}`}>
+                                    <h3 className={`text-[10px] font-black tracking-[0.2em] leading-none uppercase ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+                                        {mName}
+                                    </h3>
+                                    {isActive && <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />}
+                                </div>
+
+                                <div className="flex-1 p-5 overflow-y-auto custom-scrollbar relative">
+                                    {calendarLoading ? (
+                                        <div className="space-y-3">
+                                            <div className="h-8 bg-gray-50 animate-pulse rounded-2xl"></div>
+                                            <div className="h-8 bg-gray-50 animate-pulse rounded-2xl"></div>
+                                        </div>
+                                    ) : monthHolidays.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {monthHolidays.map((holiday, hIdx) => (
+                                                <div key={hIdx} className="flex items-center gap-3">
+                                                    <div className="flex flex-col items-center min-w-[24px]">
+                                                        <span className="text-xs font-black text-gray-900 leading-none">{new Date(holiday.date).getDate()}</span>
+                                                        <span className="text-[7px] font-bold text-blue-500 uppercase tracking-tighter">{getDayName(holiday.date)}</span>
+                                                    </div>
+                                                    <div className="flex-1 bg-slate-50 border border-slate-100/50 px-3 py-2 rounded-2xl hover:bg-blue-50 hover:border-blue-100 transition-all cursor-default">
+                                                        <p className="text-[10px] font-bold text-gray-700 leading-tight">
+                                                            {holiday.reason}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-center opacity-10 group-hover:opacity-30 transition-opacity">
+                                            <Calendar size={28} className="mb-2 text-gray-300" />
+                                            <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest leading-relaxed">
+                                                No Records
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="p-3 bg-gray-50/50 flex justify-end">
+                                    <button
+                                        onClick={() => handleEditMonth(idx + 1)}
+                                        className={`p-2.5 rounded-xl border transition-all active:scale-90 group/btn ${isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-50 shadow-sm hover:bg-blue-50 hover:shadow-md'}`}
+                                        title={`Edit ${mName} Holidays`}
+                                    >
+                                        <Edit3 size={16} className="group-hover/btn:rotate-12 transition-transform" />
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <style jsx>{`
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 4px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #f1f5f9;
+                    border-radius: 20px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #e2e8f0;
+                }
+            `}</style>
         </div>
     );
 }

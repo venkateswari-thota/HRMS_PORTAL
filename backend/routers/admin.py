@@ -166,11 +166,11 @@ async def list_employees():
             "emp_id": emp.emp_id,
             "name": emp.name,
             "email": emp.email,
-            "personal_email": emp.personal_email,
+            "personal_email": emp.personal_email or "",
             "work_location": {"lat": emp.work_lat, "lng": emp.work_lng},
             "geofence_radius": emp.geofence_radius,
-            "std_check_in": emp.std_check_in,
-            "std_check_out": emp.std_check_out,
+            "std_check_in": emp.std_check_in or "09:00",
+            "std_check_out": emp.std_check_out or "18:00",
             "image_count": len(emp.face_photos) if emp.face_photos else 0
         }
         for emp in employees

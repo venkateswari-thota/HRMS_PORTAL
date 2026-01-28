@@ -15,14 +15,14 @@ class Employee(Document):
     emp_id: str
     name: str
     email: EmailStr
-    personal_email: EmailStr # Personal email for credentials
+    personal_email: Optional[EmailStr] = None # Personal email for credentials
     password_hash: str
     work_lat: float
     work_lng: float
     geofence_radius: float  # in meters
     face_photos: List[str]  # Paths or URLs to stored images
-    std_check_in: str       # HH:MM format
-    std_check_out: str      # HH:MM format
+    std_check_in: str = "09:00"       # HH:MM format
+    std_check_out: str = "18:00"      # HH:MM format
 
     class Settings:
         name = "employees"

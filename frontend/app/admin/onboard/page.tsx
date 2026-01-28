@@ -10,6 +10,7 @@ export default function AdminOnboardPage() {
     const [pendingCount, setPendingCount] = useState(0);
     const [approvedCount, setApprovedCount] = useState(0);
     const [leavePendingCount, setLeavePendingCount] = useState(0);
+    const [employeeCount, setEmployeeCount] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const [mounted, setMounted] = useState(false);
@@ -49,6 +50,14 @@ export default function AdminOnboardPage() {
                 setLeavePendingCount(Array.isArray(leavePending) ? leavePending.length : 0);
             } catch (e) {
                 console.error('❌ Failed to fetch leave requests:', e);
+            }
+
+            // 4. Employee Count
+            try {
+                const emps = await apiRequest('/admin/employees', 'GET', null, authToken);
+                setEmployeeCount(Array.isArray(emps) ? emps.length : 0);
+            } catch (e) {
+                console.error('❌ Failed to fetch employees:', e);
             } finally {
                 setLoading(false);
             }
@@ -82,11 +91,20 @@ export default function AdminOnboardPage() {
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2">
-                    <EmployeeRegisterForm />
-                </div>
-
                 <div className="lg:col-span-1 space-y-8">
+                    <Link href="/admin/employees" className="block">
+                        <div className="bg-white p-6 h-[200px] flex flex-col items-center justify-center border border-gray-200 rounded-xl shadow-sm border-l-4 border-l-purple-600 hover:shadow-md transition-shadow cursor-pointer group">
+                            <h3 className="font-semibold text-lg text-gray-800 mb-2">Employees</h3>
+                            <div className="text-4xl font-bold text-purple-600 group-hover:scale-110 transition-transform">
+                                {loading ? '...' : employeeCount}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-2 uppercase tracking-widest">
+                                {employeeCount === 0 ? 'No Members' : `${employeeCount} Employee${employeeCount > 1 ? 's' : ''}`}
+                            </p>
+                            <p className="text-xs text-purple-600 mt-3 underline">Manage Workforce →</p>
+                        </div>
+                    </Link>
+
                     <Link href="/admin/requests" className="block">
                         <div className="bg-white p-6 h-[200px] flex flex-col items-center justify-center border border-gray-200 rounded-xl shadow-sm border-l-4 border-l-yellow-500 hover:shadow-md transition-shadow cursor-pointer">
                             <h3 className="font-semibold text-lg text-gray-800 mb-2">Pending Attendance</h3>

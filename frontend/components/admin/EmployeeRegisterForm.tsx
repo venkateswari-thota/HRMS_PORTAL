@@ -5,7 +5,7 @@ import { Camera, AlertCircle, CheckCircle, X, Upload, FolderOpen } from 'lucide-
 
 const MapPicker = dynamic(() => import('./MapPicker'), { ssr: false, loading: () => <p className="text-white/50 animate-pulse">Loading Map Interface...</p> });
 
-export default function EmployeeRegisterForm() {
+export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => void }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -223,6 +223,8 @@ export default function EmployeeRegisterForm() {
       setTempLng(0);
       setFaceImages([]);
       setImagePreviews([]);
+
+      if (onSuccess) onSuccess();
 
     } catch (err: any) {
       alert("❌ Registration Failed: " + err.message);

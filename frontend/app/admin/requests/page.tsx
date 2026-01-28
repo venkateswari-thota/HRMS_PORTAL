@@ -198,24 +198,20 @@ export default function AdminRequestsPage() {
                                         )}
 
                                         {/* Decision Actions */}
-                                        <div className="flex lg:flex-col gap-3 justify-center shrink-0">
+                                        <div className="flex lg:flex-col gap-2 justify-center shrink-0">
                                             <button
                                                 onClick={() => handleAction(req.id, 'APPROVE')}
-                                                className="flex-1 lg:w-32 py-3 lg:py-4 bg-green-500 hover:bg-green-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-green-100 active:scale-95 flex flex-col items-center justify-center gap-1 group"
+                                                className="flex-1 lg:w-28 py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-green-100 active:scale-95 flex items-center justify-center gap-2 group"
                                             >
-                                                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                    <Check size={14} strokeWidth={4} />
-                                                </div>
-                                                <span className="text-[11px] tracking-tighter uppercase">Approve</span>
+                                                <Check size={14} strokeWidth={4} className="group-hover:scale-110 transition-transform" />
+                                                <span className="text-[10px] tracking-tight uppercase">Approve</span>
                                             </button>
                                             <button
                                                 onClick={() => handleAction(req.id, 'REJECT')}
-                                                className="flex-1 lg:w-32 py-3 lg:py-4 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl transition-all shadow-lg shadow-red-100 active:scale-95 flex flex-col items-center justify-center gap-1 group"
+                                                className="flex-1 lg:w-28 py-2.5 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-100 active:scale-95 flex items-center justify-center gap-2 group"
                                             >
-                                                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                                    <X size={14} strokeWidth={4} />
-                                                </div>
-                                                <span className="text-[11px] tracking-tighter uppercase">Reject</span>
+                                                <X size={14} strokeWidth={4} className="group-hover:scale-110 transition-transform" />
+                                                <span className="text-[10px] tracking-tight uppercase">Reject</span>
                                             </button>
                                         </div>
                                     </div>

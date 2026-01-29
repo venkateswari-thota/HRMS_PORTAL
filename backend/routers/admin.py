@@ -1,12 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File, Form, Header
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List
 from backend.models import Employee, Admin, Request, Attendance, Approved
-from backend.utils import create_access_token, get_password_hash
+from backend.utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM
 from backend.s3_service import S3Service
+from jose import jwt
 import random
 import string
+import re
+
+from backend.email_utils import send_credentials_email, send_attendance_status_email
 
 # --- Helper Dependency ---
 async def get_current_admin_email(authorization: str = Header(...)):
@@ -23,11 +27,6 @@ async def get_current_admin_email(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="Invalid Token")
 
 router = APIRouter(prefix="/admin", tags=["Admin Operations"])
-
-from backend.email_utils import send_credentials_email, send_attendance_status_email
-from backend.utils import SECRET_KEY, ALGORITHM
-from jose import jwt
-from fastapi import Header
 
 class EmployeeUpdatePayload(BaseModel):
     emp_id: str

@@ -58,7 +58,7 @@ export default function AdminLocationsPage() {
         setError('');
         setSuccess('');
 
-        const token = localStorage.getItem('admin_token');
+        const token = localStorage.getItem('admin_token') || '';
         try {
             const payload = {
                 name: formData.name,
@@ -71,17 +71,22 @@ export default function AdminLocationsPage() {
             setSuccess('Location added successfully!');
             setFormData({ name: '', latitude: '', longitude: '', radius: '100' });
             fetchLocations();
-        } catch (err) {
+
+            // Auto-dismiss success message after 3 seconds
+            setTimeout(() => {
+                setSuccess('');
+            }, 3000);
+        } catch (err: any) {
             setError(err.message || 'Failed to add location');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this location?')) return;
 
-        const token = localStorage.getItem('admin_token');
+        const token = localStorage.getItem('admin_token') || '';
         try {
             await apiRequest(`/admin/locations/${id}`, 'DELETE', null, token);
             fetchLocations();

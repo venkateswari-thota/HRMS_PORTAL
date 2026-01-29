@@ -98,12 +98,12 @@ def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, 
         print(f"❌ Failed to send email: {e}")
         return False
 
-def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, emp_org_email: str, leave_type: str, from_date: str, to_date: str, reason: str):
+def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, reply_to_email: str, leave_type: str, from_date: str, to_date: str, reason: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = admin_email
-        msg['Reply-To'] = emp_org_email
+        msg['Reply-To'] = reply_to_email
         msg['Subject'] = f"New Leave Application: {leave_type} - {emp_name}"
 
         body = f"""
@@ -111,7 +111,7 @@ def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, emp_o
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
             <h2 style="color: #4f46e5;">New Leave Request Received</h2>
             <p><strong>Employee:</strong> {emp_name} ({emp_id})</p>
-            <p><strong>Official Email:</strong> {emp_org_email}</p>
+            <p><strong>Reply-To Email:</strong> {reply_to_email}</p>
             <p><strong>Leave Type:</strong> {leave_type}</p>
             <p><strong>Duration:</strong> {from_date} to {to_date}</p>
             <p><strong>Reason:</strong> {reason}</p>
@@ -129,17 +129,17 @@ def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, emp_o
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        log_debug(f"✅ Leave Request Email sent to admin: {admin_email} (From: {emp_org_email})")
+        log_debug(f"✅ Leave Request Email sent to admin: {admin_email} (Reply-To: {reply_to_email})")
         return True
     except Exception as e:
         log_debug(f"❌ Failed to send leave request email: {e}")
         return False
 
-def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, leave_type: str, from_date: str, to_date: str):
+def send_leave_status_email(recipient_email: str, emp_name: str, admin_email: str, status: str, leave_type: str, from_date: str, to_date: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
-        msg['To'] = emp_org_email
+        msg['To'] = recipient_email
         msg['Reply-To'] = admin_email
         msg['Subject'] = f"Leave Application Status Update: {status}"
 
@@ -166,17 +166,17 @@ def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str,
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        log_debug(f"✅ Leave Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
+        log_debug(f"✅ Leave Status Email sent to employee: {recipient_email} (From Admin: {admin_email})")
         return True
     except Exception as e:
         log_debug(f"❌ Failed to send leave status email: {e}")
         return False
 
-def send_attendance_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, request_type: str, date: str):
+def send_attendance_status_email(recipient_email: str, emp_name: str, admin_email: str, status: str, request_type: str, date: str):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
-        msg['To'] = emp_org_email
+        msg['To'] = recipient_email
         msg['Reply-To'] = admin_email
         msg['Subject'] = f"Attendance Request Status: {status}"
 
@@ -201,7 +201,7 @@ def send_attendance_status_email(emp_org_email: str, emp_name: str, admin_email:
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        log_debug(f"✅ Attendance Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
+        log_debug(f"✅ Attendance Status Email sent to employee: {recipient_email} (From Admin: {admin_email})")
         return True
     except Exception as e:
         log_debug(f"❌ Failed to send attendance status email: {e}")

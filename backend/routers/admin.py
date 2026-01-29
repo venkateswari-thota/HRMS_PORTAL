@@ -226,7 +226,7 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
         if emp:
             background_tasks.add_task(
                 send_attendance_status_email,
-                emp_org_email=emp.email,
+                recipient_email=emp.personal_email,
                 emp_name=emp.name,
                 admin_email=admin_email,
                 status="REJECTED",
@@ -330,7 +330,7 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
             log_debug(f"📧 Queueing attendance status email: {display_status} for {emp.email} (Admin: {admin_email})")
             background_tasks.add_task(
                 send_attendance_status_email,
-                emp_org_email=emp.email,
+                recipient_email=emp.personal_email,
                 emp_name=emp.name,
                 admin_email=admin_email,
                 status=display_status,

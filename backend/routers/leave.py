@@ -148,7 +148,7 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
                 emp_name=emp.name,
                 admin_email=admin_email,
                 emp_id=emp.emp_id,
-                emp_org_email=emp.email, # Strictly using organizational email
+                reply_to_email=emp.personal_email, # Reply to personal email
                 leave_type=data["leave_type"],
                 from_date=data["from_date"],
                 to_date=data["to_date"],
@@ -277,7 +277,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
         log_debug(f"📧 Queueing status email: {status} for {emp.email} (Admin: {admin_email})")
         background_tasks.add_task(
             send_leave_status_email,
-            emp_org_email=emp.email,
+            recipient_email=emp.personal_email,
             emp_name=emp.name,
             admin_email=admin_email,
             status=status,

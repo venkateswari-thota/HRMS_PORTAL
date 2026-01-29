@@ -17,7 +17,8 @@ import {
     FileText,
     Settings,
     ChevronRight,
-    TrendingUp
+    TrendingUp,
+    MapPin
 } from 'lucide-react';
 
 export default function AdminOnboardPage() {
@@ -254,8 +255,32 @@ export default function AdminOnboardPage() {
                                     </div>
                                 </Link>
                             </div>
-                        </div>
+                            {/* Row 4: Geographic Setup (New) */}
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 px-2">
+                                    <MapPin size={16} className="text-rose-500" />
+                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Geographic Setup</h3>
+                                    <div className="h-[1px] flex-1 bg-gray-100"></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
+                                    <Link href="/admin/locations" className="block group">
+                                        <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-xl transition-all border-l-4 border-l-rose-500 flex items-center gap-6">
+                                            <div className="w-16 h-16 bg-rose-50 rounded-[1.5rem] flex items-center justify-center text-rose-600 shrink-0 group-hover:scale-110 transition-transform">
+                                                <MapPin size={32} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <h4 className="font-black text-gray-800 text-lg leading-tight">Work Locations</h4>
+                                                <p className="text-[10px] font-black text-rose-600 uppercase mt-1 tracking-tighter">Authorized Geofence Zones</p>
+                                            </div>
+                                            <div className="p-2 bg-slate-50 rounded-xl group-hover:bg-rose-50 group-hover:text-rose-600 transition-colors">
+                                                <ChevronRight size={20} />
+                                            </div>
+                                        </div>
+                                    </Link>
+                                </div>
+                            </div>
 
+                        </div>
                     </div>
                 </div>
             </div>

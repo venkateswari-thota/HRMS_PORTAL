@@ -3,7 +3,7 @@ from backend.logger import log_debug
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List
-from backend.models import Employee, Admin, Request, Attendance, Approved
+from backend.models import Employee, Admin, Request, Attendance, Approved, WorkLocation
 from backend.utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM
 from backend.s3_service import S3Service
 from jose import jwt
@@ -37,6 +37,12 @@ class EmployeeUpdatePayload(BaseModel):
     geofence_radius: float
     std_check_in: str
     std_check_out: str
+
+class WorkLocationPayload(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    radius: float
 
 # Allowed image formats
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
@@ -385,5 +391,33 @@ async def update_employee(data: EmployeeUpdatePayload):
     await emp.save()
     
     return {"message": "Employee updated successfully"}
+
+# --- Work Locations ---
+
+@router.get("/locations")
+async def get_locations():
+    locations = await WorkLocation.find_all().to_list()
+    # Serialize to include string ID
+    results = []
+    for l in locations:
+        d = l.dict()
+        d["id"] = str(l.id)
+        results.append(d)
+    return results
+
+@router.post("/locations")
+async def add_location(data: WorkLocationPayload):
+    loc = WorkLocation(**data.dict())
+    await loc.create()
+    return {"message": "Work Location added successfully", "id": str(loc.id)}
+
+@router.delete("/locations/{id}")
+async def delete_location(id: str):
+    from beanie import PydanticObjectId
+    loc = await WorkLocation.get(PydanticObjectId(id))
+    if not loc:
+        raise HTTPException(status_code=404, detail="Location not found")
+    await loc.delete()
+    return {"message": "Work Location deleted successfully"}
 
 

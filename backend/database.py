@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 import os
 
-from .models import Admin, Employee, Attendance, Request, Approved, LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday
+from .models import Admin, Employee, Attendance, Request, Approved, LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday, WorkLocation
 
 # MongoDB URL
 MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://venkateswari:venky12345@cluster0.iimbsjk.mongodb.net/")
@@ -17,6 +17,6 @@ async def init_db():
     # Initialize Beanie with the Document classes
     await init_beanie(database, document_models=[
         Admin, Employee, Attendance, Request, Approved,
-        LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday
+        LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday, WorkLocation
     ])
 

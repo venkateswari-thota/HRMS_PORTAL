@@ -22,9 +22,8 @@ class AdminSignup(BaseModel):
 
 @router.post("/admin/signup")
 async def admin_signup(data: AdminSignup):
-    email = data.email.strip().lower()
     # Check if exists
-    exists = await Admin.find_one(Admin.email == email)
+    exists = await Admin.find_one(Admin.email == data.email)
     if exists:
         raise HTTPException(status_code=400, detail="Admin already exists")
     
@@ -35,7 +34,7 @@ async def admin_signup(data: AdminSignup):
     hashed = get_password_hash(data.password)
     admin = Admin(
         admin_id=admin_id,
-        email=email, 
+        email=data.email, 
         password_hash=hashed
     )
     await admin.create()
@@ -43,9 +42,8 @@ async def admin_signup(data: AdminSignup):
 
 @router.post("/admin/login")
 async def admin_login(data: AdminLogin):
-    email = data.email.strip().lower()
     # TODO: Verify Captcha here
-    admin = await Admin.find_one(Admin.email == email)
+    admin = await Admin.find_one(Admin.email == data.email)
     if not admin or not verify_password(data.password, admin.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -57,9 +55,8 @@ async def admin_login(data: AdminLogin):
 
 @router.post("/employee/login")
 async def employee_login(data: EmployeeLogin):
-    email = data.email.strip().lower()
     # TODO: Verify Captcha here
-    emp = await Employee.find_one(Employee.email == email)
+    emp = await Employee.find_one(Employee.email == data.email)
     if not emp or not verify_password(data.password, emp.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     

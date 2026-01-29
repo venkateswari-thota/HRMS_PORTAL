@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File, Form, Header
+from backend.logger import log_debug
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List
@@ -323,13 +324,10 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
         )
         await approved.create()
         
-        # Delete from requests collection
-        await req.delete()
-        
         # Email Notification for Attendance
         if emp:
             display_status = "APPROVED" if data.action == "APPROVE" else "REJECTED"
-            print(f"📧 Queueing attendance status email: {display_status} for {emp.email}")
+            log_debug(f"📧 Queueing attendance status email: {display_status} for {emp.email} (Admin: {admin_email})")
             background_tasks.add_task(
                 send_attendance_status_email,
                 emp_org_email=emp.email,
@@ -339,7 +337,8 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
                 request_type=req.type,
                 date=request_date
             )
-
+            
+        await req.delete()
         return {"message": f"Request {data.action.capitalize()}d Successfully"}
     
     raise HTTPException(status_code=400, detail="Invalid action")

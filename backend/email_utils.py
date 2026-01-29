@@ -1,4 +1,5 @@
 import smtplib
+from backend.logger import log_debug
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -128,10 +129,10 @@ def send_leave_request_email(emp_name: str, admin_email: str, emp_id: str, emp_o
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave Request Email sent to admin: {admin_email} (From: {emp_org_email})")
+        log_debug(f"✅ Leave Request Email sent to admin: {admin_email} (From: {emp_org_email})")
         return True
     except Exception as e:
-        print(f"❌ Failed to send leave request email: {e}")
+        log_debug(f"❌ Failed to send leave request email: {e}")
         return False
 
 def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, leave_type: str, from_date: str, to_date: str):
@@ -165,10 +166,10 @@ def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str,
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Leave Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
+        log_debug(f"✅ Leave Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
         return True
     except Exception as e:
-        print(f"❌ Failed to send leave status email: {e}")
+        log_debug(f"❌ Failed to send leave status email: {e}")
         return False
 
 def send_attendance_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, request_type: str, date: str):
@@ -200,8 +201,8 @@ def send_attendance_status_email(emp_org_email: str, emp_name: str, admin_email:
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         server.send_message(msg)
         server.quit()
-        print(f"✅ Attendance Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
+        log_debug(f"✅ Attendance Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
         return True
     except Exception as e:
-        print(f"❌ Failed to send attendance status email: {e}")
+        log_debug(f"❌ Failed to send attendance status email: {e}")
         return False

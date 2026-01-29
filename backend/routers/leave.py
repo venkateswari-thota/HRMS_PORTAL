@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
+from backend.logger import log_debug
 from typing import List
 from datetime import datetime
 from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
@@ -245,7 +246,6 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
             status="APPROVED"
         )
         await approved.create()
-        await req.delete()
         status = "APPROVED"
     
     elif data["action"] == "REJECT":
@@ -261,7 +261,6 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
             status="REJECTED"
         )
         await rejected.create()
-        await req.delete()
         status = "REJECTED"
     else:
         raise HTTPException(status_code=400, detail="Invalid Action")
@@ -275,7 +274,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
             "to": req.to_date
         }
         
-        print(f"📧 Queueing status email: {status} for {emp.email} (Admin: {admin_email})")
+        log_debug(f"📧 Queueing status email: {status} for {emp.email} (Admin: {admin_email})")
         background_tasks.add_task(
             send_leave_status_email,
             emp_org_email=emp.email,
@@ -287,8 +286,9 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
             to_date=leave_info["to"]
         )
     else:
-        print(f"⚠️ Cannot send status email: Employee for {req.emp_id} not found")
+        log_debug(f"⚠️ Cannot send status email: Employee for {req.emp_id} not found")
 
+    await req.delete()
     return {"message": f"Leave {status.capitalize()} Successfully"}
 
 # --- Holiday Calendar Endpoints (at bottom to avoid shadowing) ---

@@ -170,3 +170,38 @@ def send_leave_status_email(emp_org_email: str, emp_name: str, admin_email: str,
     except Exception as e:
         print(f"❌ Failed to send leave status email: {e}")
         return False
+
+def send_attendance_status_email(emp_org_email: str, emp_name: str, admin_email: str, status: str, request_type: str, date: str):
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = SENDER_EMAIL
+        msg['To'] = emp_org_email
+        msg['Reply-To'] = admin_email
+        msg['Subject'] = f"Attendance Request Status: {status}"
+
+        # Status color
+        color = "#16a34a" if status == "APPROVED" else "#dc2626"
+
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>Attendance Request Update</h2>
+            <p>Dear {emp_name},</p>
+            <p>Your attendance exception request for <strong>{request_type}</strong> on <strong>{date}</strong> has been <strong style="color: {color};">{status}</strong> by Management ({admin_email}).</p>
+            <br>
+            <p>Best Regards,<br>HR Team</p>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, 'html'))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.send_message(msg)
+        server.quit()
+        print(f"✅ Attendance Status Email sent to employee: {emp_org_email} (From Admin: {admin_email})")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to send attendance status email: {e}")
+        return False

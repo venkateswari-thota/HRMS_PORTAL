@@ -268,16 +268,26 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
 
     # Email logic for status update
     if emp:
+        # Extract details before potential deletion or for clarity
+        leave_info = {
+            "type": req.leave_type,
+            "from": req.from_date,
+            "to": req.to_date
+        }
+        
+        print(f"📧 Queueing status email: {status} for {emp.email} (Admin: {admin_email})")
         background_tasks.add_task(
             send_leave_status_email,
-            emp_org_email=emp.email, # Strictly using organizational email
+            emp_org_email=emp.email,
             emp_name=emp.name,
-            admin_email=admin_email, # Dynamic from active session
+            admin_email=admin_email,
             status=status,
-            leave_type=req.leave_type,
-            from_date=req.from_date,
-            to_date=req.to_date
+            leave_type=leave_info["type"],
+            from_date=leave_info["from"],
+            to_date=leave_info["to"]
         )
+    else:
+        print(f"⚠️ Cannot send status email: Employee for {req.emp_id} not found")
 
     return {"message": f"Leave {status.capitalize()} Successfully"}
 

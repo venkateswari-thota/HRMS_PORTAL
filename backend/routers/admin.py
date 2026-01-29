@@ -8,9 +8,26 @@ from backend.s3_service import S3Service
 import random
 import string
 
+# --- Helper Dependency ---
+async def get_current_admin_email(authorization: str = Header(...)):
+    try:
+        token = authorization.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Admin access required")
+        email = payload.get("sub")
+        if not email:
+             raise HTTPException(status_code=401, detail="Invalid Token")
+        return email
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
 router = APIRouter(prefix="/admin", tags=["Admin Operations"])
 
-from backend.email_utils import send_credentials_email
+from backend.email_utils import send_credentials_email, send_attendance_status_email
+from backend.utils import SECRET_KEY, ALGORITHM
+from jose import jwt
+from fastapi import Header
 
 class EmployeeUpdatePayload(BaseModel):
     emp_id: str
@@ -196,7 +213,7 @@ class ApprovalPayload(BaseModel):
     action: str # APPROVE or REJECT
 
 @router.post("/requests/review")
-async def review_request(data: ApprovalPayload):
+async def review_request(data: ApprovalPayload, background_tasks: BackgroundTasks, admin_email: str = Depends(get_current_admin_email)):
     req = await Request.get(data.request_id)
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
@@ -205,9 +222,19 @@ async def review_request(data: ApprovalPayload):
         raise HTTPException(status_code=400, detail="Request already processed")
     
     if data.action == "REJECT":
-        # Just delete rejected requests
+        emp = await Employee.find_one(Employee.emp_id == req.emp_id)
+        if emp:
+            background_tasks.add_task(
+                send_attendance_status_email,
+                emp_org_email=emp.email,
+                emp_name=emp.name,
+                admin_email=admin_email,
+                status="REJECTED",
+                request_type=req.type,
+                date=req.timestamp.strftime("%Y-%m-%d")
+            )
         await req.delete()
-        return {"message": "Request Rejected"}
+        return {"message": "Request Rejected Successfully"}
 
     if data.action == "APPROVE":
         # Get employee details
@@ -300,7 +327,21 @@ async def review_request(data: ApprovalPayload):
         # Delete from requests collection
         await req.delete()
         
-        return {"message": "Request Approved & Moved to Approved Collection"}
+        # Email Notification for Attendance
+        if emp:
+            display_status = "APPROVED" if data.action == "APPROVE" else "REJECTED"
+            print(f"📧 Queueing attendance status email: {display_status} for {emp.email}")
+            background_tasks.add_task(
+                send_attendance_status_email,
+                emp_org_email=emp.email,
+                emp_name=emp.name,
+                admin_email=admin_email,
+                status=display_status,
+                request_type=req.type,
+                date=request_date
+            )
+
+        return {"message": f"Request {data.action.capitalize()}d Successfully"}
     
     raise HTTPException(status_code=400, detail="Invalid action")
 

@@ -42,7 +42,6 @@ class WorkLocationPayload(BaseModel):
     name: str
     latitude: float
     longitude: float
-    radius: float
 
 # Allowed image formats
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}

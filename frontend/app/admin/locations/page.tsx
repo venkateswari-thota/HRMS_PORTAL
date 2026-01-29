@@ -27,8 +27,7 @@ export default function AdminLocationsPage() {
     const [formData, setFormData] = useState({
         name: '',
         latitude: '',
-        longitude: '',
-        radius: '100' // Default 100m
+        longitude: ''
     });
 
     const fetchLocations = async () => {
@@ -63,13 +62,12 @@ export default function AdminLocationsPage() {
             const payload = {
                 name: formData.name,
                 latitude: parseFloat(formData.latitude),
-                longitude: parseFloat(formData.longitude),
-                radius: parseFloat(formData.radius)
+                longitude: parseFloat(formData.longitude)
             };
 
             await apiRequest('/admin/locations', 'POST', payload, token);
             setSuccess('Location added successfully!');
-            setFormData({ name: '', latitude: '', longitude: '', radius: '100' });
+            setFormData({ name: '', latitude: '', longitude: '' });
             fetchLocations();
 
             // Auto-dismiss success message after 3 seconds
@@ -188,20 +186,6 @@ export default function AdminLocationsPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Radius (meters)</label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            name="radius"
-                                            required
-                                            className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-transparent focus:bg-white focus:border-rose-500 transition-all font-bold text-gray-800 outline-none pr-12"
-                                            value={formData.radius}
-                                            onChange={handleChange}
-                                        />
-                                        <Radar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                                    </div>
-                                </div>
 
                                 <button
                                     type="button"
@@ -275,10 +259,6 @@ export default function AdminLocationsPage() {
                                             <div className="flex justify-between items-start">
                                                 <div className="space-y-1">
                                                     <h3 className="text-xl font-black text-gray-800">{loc.name}</h3>
-                                                    <div className="flex items-center gap-2 text-rose-600 bg-rose-50 px-3 py-1 rounded-full w-fit">
-                                                        <Navigation size={12} strokeWidth={3} />
-                                                        <span className="text-[10px] font-black uppercase tracking-widest">{loc.radius}m Radius</span>
-                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => handleDelete(loc.id)}

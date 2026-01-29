@@ -162,7 +162,6 @@ class WorkLocation(Document):
     name: str
     latitude: float
     longitude: float
-    radius: float  # in meters (geofence radius)
     created_at: datetime = Field(default_factory=datetime.now)
 
     class Settings:

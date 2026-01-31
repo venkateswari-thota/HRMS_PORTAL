@@ -28,12 +28,13 @@ export default function AttendanceSignIn() {
     const [isCheckingIn, setIsCheckingIn] = useState(false);
     const [isLocationChecking, setIsLocationChecking] = useState(false);
 
+    const [workLocation, setWorkLocation] = useState({
+        lat: 0,
+        lng: 0,
+        radius: 0
+    });
     const [referenceDescriptors, setReferenceDescriptors] = useState<any>(null);
     const [employeeName, setEmployeeName] = useState('');
-
-    const mockTgtLat = 17.42275;
-    const mockTgtLng = 78.45315;
-    const mockRadius = 1000; // 1km
 
     useEffect(() => {
         const init = async () => {
@@ -48,8 +49,13 @@ export default function AttendanceSignIn() {
 
             try {
                 // Get employee info for work location
-                const empInfo = await apiRequest('/attendance/me/info', 'GET', null, token);
+                const empInfo = await apiRequest('/attendance/me/info', 'GET', null, token || '');
                 setEmployeeName(empInfo.name);
+                setWorkLocation({
+                    lat: empInfo.work_lat,
+                    lng: empInfo.work_lng,
+                    radius: empInfo.geofence_radius
+                });
 
                 // Load images from sessionStorage (Pre-loaded on Home)
                 let storedImages = sessionStorage.getItem('face_images');
@@ -357,7 +363,7 @@ export default function AttendanceSignIn() {
                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Location</span>
                         </div>
                         <div className="rounded-xl overflow-hidden grayscale contrast-125 border border-gray-100">
-                            <GeoGuard active={isLocationChecking} targetLat={mockTgtLat} targetLng={mockTgtLng} radius={mockRadius} onStatusChange={handleGeoStatus} />
+                            <GeoGuard active={isLocationChecking} targetLat={workLocation.lat} targetLng={workLocation.lng} radius={workLocation.radius} onStatusChange={handleGeoStatus} />
                         </div>
                         <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                             <div className="flex justify-between text-[10px] font-mono text-gray-500 uppercase">

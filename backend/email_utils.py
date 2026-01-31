@@ -1,14 +1,19 @@
 import smtplib
 from backend.logger import log_debug
+import os
+from dotenv import load_dotenv
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
 
-# Credentials (In Production use Env Vars)
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SENDER_EMAIL = "venkateswarithota456@gmail.com"
-SENDER_PASSWORD = "jzfh pkxs rasn scwk" # Note: User might need App Password if 2FA is on
+# Load environment variables from .env file
+load_dotenv()
+
+# Configuration
+SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SENDER_EMAIL = os.getenv("SMTP_SENDER_EMAIL")
+SENDER_PASSWORD = os.getenv("SMTP_SENDER_PASSWORD")
 
 def send_credentials_email(to_email: str, emp_id: str, password: str, name: str, org_email: str, check_in: str, check_out: str):
     try:
@@ -63,11 +68,12 @@ def send_credentials_email(to_email: str, emp_id: str, password: str, name: str,
         print(f"Failed to send email: {e}")
         return False
 
-def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, type: str, reason: str, lat: float, lng: float):
+def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, reply_to_email: str, type: str, reason: str, lat: float, lng: float):
     try:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = admin_email
+        msg['Reply-To'] = reply_to_email
         msg['Subject'] = f"Attendance Exception Request: {type} - {emp_id}"
 
         body = f"""
@@ -76,6 +82,7 @@ def send_attendance_request_email(emp_name: str, admin_email: str, emp_id: str, 
             <h2>Attendance Exception Request</h2>
             <p><strong>Employee Name:</strong> {emp_name}</p>
             <p><strong>Employee ID:</strong> {emp_id}</p>
+            <p><strong>Reply-To Email:</strong> {reply_to_email}</p>
             <p><strong>Request Type:</strong> {type}</p>
             <p><strong>Reason:</strong> {reason}</p>
             <p><strong>Location:</strong> {lat}, {lng}</p>

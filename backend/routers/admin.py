@@ -2,9 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFi
 from backend.logger import log_debug
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from backend.models import Employee, Admin, Request, Attendance, Approved, WorkLocation
-from backend.utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM
+from backend.utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM, validate_phone
 from backend.s3_service import S3Service
 from jose import jwt
 import random
@@ -32,6 +32,10 @@ router = APIRouter(prefix="/admin", tags=["Admin Operations"])
 class EmployeeUpdatePayload(BaseModel):
     emp_id: str
     personal_email: EmailStr
+    primary_phone: str
+    secondary_phone: Optional[str] = None
+    emergency_phone: str
+    work_location: str
     work_lat: float
     work_lng: float
     geofence_radius: float
@@ -76,6 +80,10 @@ async def register_employee(
     name: str = Form(...),
     email: EmailStr = Form(...),
     personal_email: EmailStr = Form(...),
+    primary_phone: str = Form(...),
+    secondary_phone: Optional[str] = Form(None),
+    emergency_phone: str = Form(...),
+    work_location: str = Form(...),
     work_lat: float = Form(...),
     work_lng: float = Form(...),
     geofence_radius: float = Form(...),
@@ -86,6 +94,14 @@ async def register_employee(
     """
     Register employee with face images uploaded to S3
     """
+    # Validate phone numbers
+    if not validate_phone(primary_phone):
+        raise HTTPException(status_code=400, detail="Primary phone must be 10 digits")
+    if secondary_phone and not validate_phone(secondary_phone):
+        raise HTTPException(status_code=400, detail="Secondary phone must be 10 digits")
+    if not validate_phone(emergency_phone):
+        raise HTTPException(status_code=400, detail="Emergency phone must be 10 digits")
+
     # Validate image count
     if len(face_images) < MIN_IMAGES:
         raise HTTPException(
@@ -152,6 +168,10 @@ async def register_employee(
         email=email,
         personal_email=personal_email,
         password_hash=hashed,
+        primary_phone=primary_phone,
+        secondary_phone=secondary_phone,
+        emergency_phone=emergency_phone,
+        work_location=work_location,
         work_lat=work_lat,
         work_lng=work_lng,
         geofence_radius=geofence_radius,
@@ -189,6 +209,10 @@ async def list_employees():
             "name": emp.name,
             "email": emp.email,
             "personal_email": emp.personal_email,
+            "primary_phone": emp.primary_phone,
+            "secondary_phone": emp.secondary_phone,
+            "emergency_phone": emp.emergency_phone,
+            "work_location_name": emp.work_location,
             "work_location": {"lat": emp.work_lat, "lng": emp.work_lng},
             "geofence_radius": emp.geofence_radius,
             "std_check_in": emp.std_check_in,
@@ -231,7 +255,7 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
         if emp:
             background_tasks.add_task(
                 send_attendance_status_email,
-                recipient_email=emp.personal_email,
+                recipient_email=emp.email,
                 emp_name=emp.name,
                 admin_email=admin_email,
                 status="REJECTED",
@@ -251,35 +275,25 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
         request_date = req.timestamp.strftime("%Y-%m-%d")
         
         if req.type == "CHECK_IN":
-            # Create attendance record with standard check-in time
-            std_time_str = f"{request_date} {emp.std_check_in}"
-            std_check_in_time = datetime.strptime(std_time_str, "%Y-%m-%d %H:%M")
-            
             # Check if attendance already exists
             existing = await Attendance.find_one(
                 Attendance.emp_id == req.emp_id,
                 Attendance.date == request_date
             )
             
-            if existing:
-                # Update existing record and reset session
-                existing.check_in_time = std_check_in_time
-                existing.last_in_time = std_check_in_time
-                existing.last_out_time = None
-                existing.worked_hours = None
-                existing.status = "EXCEPTION_APPROVED"
-                await existing.save()
-            else:
+            if not existing:
+                # Create attendance record using request generation time
                 attendance = Attendance(
                     emp_id=req.emp_id,
                     date=request_date,
-                    check_in_time=std_check_in_time,
-                    last_in_time=std_check_in_time,
+                    check_in_time=req.timestamp,
+                    last_in_time=req.timestamp,
                     last_out_time=None,
                     worked_hours=None,
                     status="EXCEPTION_APPROVED"
                 )
                 await attendance.create()
+            # If exists, we make no changes (as per request)
         
         elif req.type == "CHECK_OUT":
             # Find existing attendance record
@@ -289,17 +303,14 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
             )
             
             if not attendance:
+                # Block approval if no check-in exists
                 raise HTTPException(
                     status_code=400,
-                    detail="No check-in record found for this date. Cannot approve check-out."
+                    detail="Related check-in is pending, so check-out is not possible"
                 )
             
-            # Parse std_check_out time
-            std_time_str = f"{request_date} {emp.std_check_out}"
-            std_check_out_time = datetime.strptime(std_time_str, "%Y-%m-%d %H:%M")
-            
-            # Update checkout times
-            attendance.last_out_time = std_check_out_time
+            # Update checkout times using request generation time
+            attendance.last_out_time = req.timestamp
             
             # Calculate worked hours using last_in_time and last_out_time
             if attendance.last_in_time and attendance.last_out_time:
@@ -335,7 +346,7 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
             log_debug(f"📧 Queueing attendance status email: {display_status} for {emp.email} (Admin: {admin_email})")
             background_tasks.add_task(
                 send_attendance_status_email,
-                recipient_email=emp.personal_email,
+                recipient_email=emp.email,
                 emp_name=emp.name,
                 admin_email=admin_email,
                 status=display_status,
@@ -376,11 +387,23 @@ async def update_employee(data: EmployeeUpdatePayload):
         raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
 
     # 2. Find and Update
+    # Validate phone numbers
+    if not validate_phone(data.primary_phone):
+        raise HTTPException(status_code=400, detail="Primary phone must be 10 digits")
+    if data.secondary_phone and not validate_phone(data.secondary_phone):
+        raise HTTPException(status_code=400, detail="Secondary phone must be 10 digits")
+    if not validate_phone(data.emergency_phone):
+        raise HTTPException(status_code=400, detail="Emergency phone must be 10 digits")
+
     emp = await Employee.find_one(Employee.emp_id == data.emp_id)
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
     
     emp.personal_email = personal_email
+    emp.primary_phone = data.primary_phone
+    emp.secondary_phone = data.secondary_phone
+    emp.emergency_phone = data.emergency_phone
+    emp.work_location = data.work_location
     emp.work_lat = data.work_lat
     emp.work_lng = data.work_lng
     emp.geofence_radius = data.geofence_radius
@@ -396,13 +419,15 @@ async def update_employee(data: EmployeeUpdatePayload):
 @router.get("/locations")
 async def get_locations():
     locations = await WorkLocation.find_all().to_list()
-    # Serialize to include string ID
-    results = []
-    for l in locations:
-        d = l.dict()
-        d["id"] = str(l.id)
-        results.append(d)
-    return results
+    return [
+        {
+            "id": str(l.id),
+            "name": l.name,
+            "latitude": l.latitude,
+            "longitude": l.longitude
+        }
+        for l in locations
+    ]
 
 @router.post("/locations")
 async def add_location(data: WorkLocationPayload):

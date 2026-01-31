@@ -17,12 +17,16 @@ class Employee(Document):
     email: EmailStr
     personal_email: EmailStr # Personal email for credentials
     password_hash: str
-    work_lat: float
-    work_lng: float
-    geofence_radius: float  # in meters
-    face_photos: List[str]  # Paths or URLs to stored images
-    std_check_in: str       # HH:MM format
-    std_check_out: str      # HH:MM format
+    primary_phone: str = ""
+    secondary_phone: Optional[str] = None
+    emergency_phone: str = ""
+    work_location: str = ""
+    work_lat: float = 0.0
+    work_lng: float = 0.0
+    geofence_radius: float = 100.0  # in meters
+    face_photos: List[str] = []     # Paths or URLs to stored images
+    std_check_in: str = "09:00"    # HH:MM format
+    std_check_out: str = "18:00"   # HH:MM format
 
     class Settings:
         name = "employees"

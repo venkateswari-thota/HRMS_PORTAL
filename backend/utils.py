@@ -2,6 +2,15 @@ from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt
 from typing import Optional
+import re
+
+def validate_phone(phone: str) -> bool:
+    """Validate that phone number is exactly 10 digits"""
+    if not phone:
+        return False
+    # Remove any spaces or dashes just in case, though we expect clean input
+    clean_phone = re.sub(r"[\s\-]", "", phone)
+    return bool(re.match(r"^[0-9]{10}$", clean_phone))
 
 # Configuration
 SECRET_KEY = "SECRET_KEY_GOES_HERE_CHANGE_IN_PROD"

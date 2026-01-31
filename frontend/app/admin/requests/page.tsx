@@ -21,6 +21,7 @@ import {
 export default function AdminRequestsPage() {
     const router = useRouter();
     const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+    const [actionErrors, setActionErrors] = useState<{ [key: string]: string }>({});
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -54,9 +55,22 @@ export default function AdminRequestsPage() {
         try {
             const token = localStorage.getItem('admin_token');
             await apiRequest('/admin/requests/review', 'POST', { request_id: id, action }, token || '');
+
+            // Clear error if it was resolved
+            if (actionErrors[id]) {
+                const newErrors = { ...actionErrors };
+                delete newErrors[id];
+                setActionErrors(newErrors);
+            }
+
             fetchRequests();
         } catch (e: any) {
-            alert(e.message);
+            // Check for the specific "pending check-in" error to show inline
+            if (e.message.includes('pending')) {
+                setActionErrors(prev => ({ ...prev, [id]: e.message }));
+            } else {
+                alert(e.message);
+            }
         }
     };
 
@@ -199,6 +213,13 @@ export default function AdminRequestsPage() {
 
                                         {/* Decision Actions */}
                                         <div className="flex lg:flex-col gap-2 justify-center shrink-0">
+                                            {actionErrors[req.id] && (
+                                                <div className="mb-2 p-2 bg-red-50 border border-red-100 rounded-xl animate-in fade-in slide-in-from-top-1">
+                                                    <p className="text-[10px] text-red-600 font-bold leading-tight flex items-center gap-1">
+                                                        <AlertCircle size={10} /> {actionErrors[req.id]}
+                                                    </p>
+                                                </div>
+                                            )}
                                             <button
                                                 onClick={() => handleAction(req.id, 'APPROVE')}
                                                 className="lg:w-32 h-12 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 group"

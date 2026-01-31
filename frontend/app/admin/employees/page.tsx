@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import EmployeeRegisterForm from '@/components/admin/EmployeeRegisterForm';
 import EmployeeEditModal from '@/components/admin/EmployeeEditModal';
-import { Users, Mail, MapPin, Shield, ArrowLeft, Clock, Edit2 } from 'lucide-react';
+import { Users, Mail, MapPin, Shield, ArrowLeft, Clock, Edit2, Phone, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminEmployeesPage() {
@@ -83,7 +83,7 @@ export default function AdminEmployeesPage() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {employees.map((emp) => (
-                                <div key={emp.emp_id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all hover:border-purple-200 group relative flex flex-col h-[280px]">
+                                <div key={emp.emp_id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all hover:border-purple-200 group relative flex flex-col h-[320px]">
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="p-1.5 bg-purple-50 text-purple-600 rounded-lg group-hover:bg-purple-500 group-hover:text-white transition-colors">
                                             <Users size={16} />
@@ -105,15 +105,19 @@ export default function AdminEmployeesPage() {
                                                 <Mail size={12} className="flex-shrink-0 text-indigo-400" />
                                                 <span className="truncate font-medium" title={emp.personal_email}>{emp.personal_email}</span>
                                             </div>
+                                            <div className="flex items-center gap-2 text-[10px] text-gray-500 overflow-hidden">
+                                                <Phone size={12} className="flex-shrink-0 text-green-500" />
+                                                <span className="truncate font-medium">{emp.primary_phone}</span>
+                                            </div>
                                         </div>
 
                                         <div className="pt-2.5 border-t border-gray-50 space-y-2">
                                             <div className="flex items-center justify-between text-[10px]">
                                                 <div className="flex items-center gap-1.5 text-gray-400">
-                                                    <MapPin size={11} className="text-green-500" />
-                                                    <span>Location</span>
+                                                    <MapPin size={11} className="text-rose-500" />
+                                                    <span>Zone</span>
                                                 </div>
-                                                <span className="font-mono text-gray-600 bg-gray-50 px-1 rounded">{emp.work_location.lat.toFixed(3)}, {emp.work_location.lng.toFixed(3)}</span>
+                                                <span className="font-bold text-gray-700 bg-rose-50 px-1.5 rounded truncate max-w-[100px]" title={emp.work_location_name}>{emp.work_location_name}</span>
                                             </div>
                                             <div className="flex items-center justify-between text-[10px]">
                                                 <div className="flex items-center gap-1.5 text-gray-400">
@@ -128,6 +132,13 @@ export default function AdminEmployeesPage() {
                                                     <span>Shift</span>
                                                 </div>
                                                 <span className="font-bold text-gray-600">{emp.std_check_in} - {emp.std_check_out}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px]">
+                                                <div className="flex items-center gap-1.5 text-gray-400">
+                                                    <AlertCircle size={11} className="text-red-400" />
+                                                    <span>Emergency</span>
+                                                </div>
+                                                <span className="font-bold text-gray-600 font-mono tracking-tighter">{emp.emergency_phone}</span>
                                             </div>
                                         </div>
                                     </div>

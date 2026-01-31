@@ -68,7 +68,18 @@ export default function LeaveApplyPage() {
         return false;
     };
 
-    const validateDateRange = (from: string, to: string) => {
+    const isUtilized = (dateStr: string) => {
+        if (!dateStr) return false;
+        // Check pending
+        const inPending = pendingLeaves.some(l => dateStr >= l.from_date && dateStr <= l.to_date);
+        if (inPending) return true;
+        // Check approved
+        const inApproved = historyLeaves.some(l => l.status === 'APPROVED' && dateStr >= l.from_date && dateStr <= l.to_date);
+        if (inApproved) return true;
+        return false;
+    };
+
+    const checkValidation = (from: string, to: string) => {
         if (!from || !to) return true;
 
         let current = new Date(from);
@@ -76,27 +87,34 @@ export default function LeaveApplyPage() {
 
         while (current <= endDate) {
             const dateStr = current.toISOString().split('T')[0];
+
+            // 1. Non-working day check
             if (isNonWorkingDay(dateStr)) {
+                alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
                 return false;
             }
+
+            // 2. Utilized check
+            if (isUtilized(dateStr)) {
+                alert("This day leave is already utilized by you.");
+                return false;
+            }
+
             current.setDate(current.getDate() + 1);
         }
         return true;
     };
 
     const handleDateChange = (field: 'from_date' | 'to_date', value: string) => {
-        if (isNonWorkingDay(value)) {
-            alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
-            return; // Don't update state to block the selection
-        }
-
         const newFormData = { ...formData, [field]: value };
 
-        // If both dates are set, check the entire range
-        if (newFormData.from_date && newFormData.to_date) {
-            if (!validateDateRange(newFormData.from_date, newFormData.to_date)) {
-                alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
-                return;
+        // If To Date is being changed, or if From Date is changed while To Date exists
+        if (field === 'to_date' || (field === 'from_date' && newFormData.to_date)) {
+            if (newFormData.from_date && newFormData.to_date) {
+                if (!checkValidation(newFormData.from_date, newFormData.to_date)) {
+                    // If validation fails, reset the field being changed
+                    return;
+                }
             }
         }
 
@@ -107,8 +125,7 @@ export default function LeaveApplyPage() {
         e.preventDefault();
 
         // Final safety validation
-        if (!validateDateRange(formData.from_date, formData.to_date)) {
-            alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
+        if (!checkValidation(formData.from_date, formData.to_date)) {
             return;
         }
 

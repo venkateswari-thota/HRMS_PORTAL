@@ -1,7 +1,9 @@
 'use client';
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Camera, AlertCircle, CheckCircle, X, Upload, FolderOpen } from 'lucide-react';
+import { Camera, AlertCircle, CheckCircle, X, Upload, FolderOpen, Phone, MapPin as MapPinIcon } from 'lucide-react';
+import { apiRequest } from '@/lib/api';
+import { useEffect } from 'react';
 
 const MapPicker = dynamic(() => import('./MapPicker'), { ssr: false, loading: () => <p className="text-white/50 animate-pulse">Loading Map Interface...</p> });
 
@@ -10,6 +12,10 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
     name: '',
     email: '',
     personal_email: '',
+    primary_phone: '',
+    secondary_phone: '',
+    emergency_phone: '',
+    work_location: '',
     work_lat: 0,
     work_lng: 0,
     geofence_radius: 100,
@@ -17,16 +23,44 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
     std_check_out: '18:00',
   });
 
+  const [locations, setLocations] = useState<any[]>([]);
+
   const [faceImages, setFaceImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationsError, setLocationsError] = useState('');
   const [uploadError, setUploadError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
   // Edit states for location
   const [isEditingLocation, setIsEditingLocation] = useState(false);
   const [tempLat, setTempLat] = useState(0);
   const [tempLng, setTempLng] = useState(0);
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      setLocationsLoading(true);
+      setLocationsError('');
+      try {
+        const token = localStorage.getItem('admin_token');
+        const data = await apiRequest('/admin/locations', 'GET', null, token || '');
+        if (Array.isArray(data)) {
+          setLocations(data);
+        } else {
+          console.error('Invalid locations data:', data);
+          setLocations([]);
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch locations:', err);
+        setLocationsError('Failed to load locations');
+      } finally {
+        setLocationsLoading(false);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setFormData(prev => ({ ...prev, work_lat: lat, work_lng: lng }));
@@ -163,8 +197,32 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
     });
   };
 
+  const validatePhone = (phone: string) => /^[0-9]{10}$/.test(phone.replace(/[\s\-]/g, ''));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate phone numbers
+    const errors: { [key: string]: string } = {};
+    if (!validatePhone(formData.primary_phone)) {
+      errors.primary_phone = 'Primary phone must be exactly 10 digits';
+    }
+    if (formData.secondary_phone && !validatePhone(formData.secondary_phone)) {
+      errors.secondary_phone = 'Secondary phone must be exactly 10 digits';
+    }
+    if (!validatePhone(formData.emergency_phone)) {
+      errors.emergency_phone = 'Emergency phone must be exactly 10 digits';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      // Optional: Scroll to first error
+      const firstError = Object.keys(errors)[0];
+      const element = document.getElementsByName(firstError)[0];
+      if (element) element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    setFieldErrors({});
 
     // Validate images
     if (faceImages.length < 3) {
@@ -179,6 +237,10 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
       formDataToSend.append('name', formData.name);
       formDataToSend.append('email', formData.email);
       formDataToSend.append('personal_email', formData.personal_email);
+      formDataToSend.append('primary_phone', formData.primary_phone);
+      formDataToSend.append('secondary_phone', formData.secondary_phone);
+      formDataToSend.append('emergency_phone', formData.emergency_phone);
+      formDataToSend.append('work_location', formData.work_location);
       formDataToSend.append('work_lat', formData.work_lat.toString());
       formDataToSend.append('work_lng', formData.work_lng.toString());
       formDataToSend.append('geofence_radius', formData.geofence_radius.toString());
@@ -213,6 +275,10 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
         name: '',
         email: '',
         personal_email: '',
+        primary_phone: '',
+        secondary_phone: '',
+        emergency_phone: '',
+        work_location: '',
         work_lat: 0,
         work_lng: 0,
         geofence_radius: 100,
@@ -273,6 +339,88 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
             onChange={e => setFormData({ ...formData, personal_email: e.target.value })}
             required
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Phone size={12} className="text-blue-500" /> Primary Phone
+          </label>
+          <input
+            name="primary_phone"
+            className={`${inputClass} ${fieldErrors.primary_phone ? 'border-red-500 bg-red-50/30' : ''}`}
+            placeholder="10-digit number (e.g. 9876543210)"
+            value={formData.primary_phone}
+            onChange={e => {
+              setFormData({ ...formData, primary_phone: e.target.value });
+              if (fieldErrors.primary_phone) setFieldErrors(prev => ({ ...prev, primary_phone: '' }));
+            }}
+            required
+          />
+          {fieldErrors.primary_phone && <p className="text-[11px] text-red-600 font-medium mt-1 flex items-center gap-1"><AlertCircle size={10} /> {fieldErrors.primary_phone}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <Phone size={12} className="text-gray-400" /> Secondary Phone (Optional)
+          </label>
+          <input
+            name="secondary_phone"
+            className={`${inputClass} ${fieldErrors.secondary_phone ? 'border-red-500 bg-red-50/30' : ''}`}
+            placeholder="10-digit number (Optional)"
+            value={formData.secondary_phone}
+            onChange={e => {
+              setFormData({ ...formData, secondary_phone: e.target.value });
+              if (fieldErrors.secondary_phone) setFieldErrors(prev => ({ ...prev, secondary_phone: '' }));
+            }}
+          />
+          {fieldErrors.secondary_phone && <p className="text-[11px] text-red-600 font-medium mt-1 flex items-center gap-1"><AlertCircle size={10} /> {fieldErrors.secondary_phone}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5 text-red-500/80">
+            <AlertCircle size={12} /> Emergency Phone
+          </label>
+          <input
+            name="emergency_phone"
+            className={`${inputClass} ${fieldErrors.emergency_phone ? 'border-red-500 bg-red-100/10' : 'border-red-50 focus:border-red-200'}`}
+            placeholder="10-digit numeric contact"
+            value={formData.emergency_phone}
+            onChange={e => {
+              setFormData({ ...formData, emergency_phone: e.target.value });
+              if (fieldErrors.emergency_phone) setFieldErrors(prev => ({ ...prev, emergency_phone: '' }));
+            }}
+            required
+          />
+          {fieldErrors.emergency_phone && <p className="text-[11px] text-red-600 font-medium mt-1 flex items-center gap-1"><AlertCircle size={10} /> {fieldErrors.emergency_phone}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <MapPinIcon size={12} className="text-rose-500" /> Authorized Work Location
+            {locationsLoading && <span className="text-[10px] lowercase animate-pulse text-blue-400 font-normal">(fetching...)</span>}
+            {locationsError && <span className="text-[10px] lowercase text-red-400 font-normal">(error: {locationsError})</span>}
+          </label>
+          <select
+            className={`${inputClass} appearance-none cursor-pointer ${locationsError ? 'border-red-200 bg-red-50/30' : ''}`}
+            value={formData.work_location}
+            onChange={e => {
+              const locName = e.target.value;
+              const loc = locations.find(l => l.name === locName);
+              setFormData({
+                ...formData,
+                work_location: locName,
+                work_lat: loc ? loc.latitude : formData.work_lat,
+                work_lng: loc ? loc.longitude : formData.work_lng
+              });
+            }}
+            required
+            disabled={locationsLoading}
+          >
+            <option value="">{locationsLoading ? 'Loading Zones...' : 'Select Location'}</option>
+            {locations.map((loc, idx) => (
+              <option key={idx} value={loc.name}>{loc.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="col-span-2 space-y-2">

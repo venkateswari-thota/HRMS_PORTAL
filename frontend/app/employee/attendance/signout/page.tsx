@@ -32,9 +32,6 @@ export default function AttendanceSignOut() {
         radius: 0
     });
 
-    const mockTgtLat = 17.42275;
-    const mockTgtLng = 78.45315;
-    const mockRadius = 1000;
 
     useEffect(() => {
         const init = async () => {
@@ -45,7 +42,7 @@ export default function AttendanceSignOut() {
             if (storedName) setEmpName(storedName);
 
             try {
-                const empInfo = await apiRequest('/attendance/me/info', 'GET', null, token);
+                const empInfo = await apiRequest('/attendance/me/info', 'GET', null, token || '');
                 setWorkLocation({
                     lat: empInfo.work_lat,
                     lng: empInfo.work_lng,
@@ -131,14 +128,19 @@ export default function AttendanceSignOut() {
         setStatusMsg('⏳ Submitting check-out...');
 
         try {
-            await apiRequest('/attendance/check-out', 'POST', {
+            const res = await apiRequest('/attendance/check-out', 'POST', {
                 lat: currentLoc.lat,
                 lng: currentLoc.lng
             }, localStorage.getItem('emp_token') || '');
 
-            setStatusMsg('✅ Check-Out Successful! Redirecting...');
-            sessionStorage.removeItem('last_face_failure');
-            setTimeout(() => router.push('/employee/attendance/log'), 1500);
+            if (res.message && res.message.includes("Check-out is not possible")) {
+                setStatusMsg('ℹ️ ' + res.message);
+                setTimeout(() => router.push('/employee/home'), 1000);
+            } else {
+                setStatusMsg('✅ Check-Out Successful! Redirecting...');
+                sessionStorage.removeItem('last_face_failure');
+                setTimeout(() => router.push('/employee/attendance/log'), 1500);
+            }
         } catch (err: any) {
             setStatusMsg('❌ Check-Out Failed: ' + err.message);
             setIsCheckingOut(false);
@@ -351,7 +353,7 @@ export default function AttendanceSignOut() {
                             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Location</span>
                         </div>
                         <div className="rounded-xl overflow-hidden grayscale contrast-125 border border-gray-100">
-                            <GeoGuard active={isLocationChecking} targetLat={mockTgtLat} targetLng={mockTgtLng} radius={mockRadius} onStatusChange={handleGeoStatus} />
+                            <GeoGuard active={isLocationChecking} targetLat={workLocation.lat} targetLng={workLocation.lng} radius={workLocation.radius} onStatusChange={handleGeoStatus} />
                         </div>
                         <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                             <div className="flex justify-between text-[10px] font-mono text-gray-500 uppercase">

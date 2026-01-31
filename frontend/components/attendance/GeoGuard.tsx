@@ -44,18 +44,18 @@ export default function GeoGuard({ targetLat, targetLng, radius, active, onStatu
 
         let watchId: number;
 
-        // Absolute 60s timeout to prevent infinite manual waiting
+        // Absolute 120s timeout to prevent infinite manual waiting
         const absoluteTimeoutId = setTimeout(() => {
-            console.warn("🧭 GeoGuard: Absolute 60s timeout reached.");
-            setStatus("❌ Location Timeout - Calibration took too long. Please try again or use the request link.");
+            console.warn("🧭 GeoGuard: Absolute 120s timeout reached.");
+            setStatus("❌ GPS Signal Weak - Calibration took too long. Move outdoors or near a window and try again.");
             onStatusChange(false, 0, 0);
             if (watchId) navigator.geolocation.clearWatch(watchId);
-        }, 60000);
+        }, 120000);
 
         // Add timeout for initial location feedback
         const feedbackTimeoutId = setTimeout(() => {
             if (status === "Locating...") {
-                setStatus("⏳ Getting GPS signal... (may take 10-30s)");
+                setStatus("⏳ Tuning GPS accuracy... (Stay in your place)");
             }
         }, 5000);
 

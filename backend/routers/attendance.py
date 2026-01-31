@@ -1,20 +1,23 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, BackgroundTasks
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
 import math
 from backend.models import Attendance, Employee, Request, Admin
 from backend.email_utils import send_attendance_request_email
 from typing import Optional
 from jose import jwt
-from backend.utils import SECRET_KEY, ALGORITHM
+from backend.utils import SECRET_KEY, ALGORITHM, validate_phone
 import boto3
 import cv2
 import numpy as np
 
 router = APIRouter(prefix="/attendance", tags=["Attendance"])
 
-class EmailUpdatePayload(BaseModel):
-    email: str
+class ProfileUpdatePayload(BaseModel):
+    personal_email: EmailStr
+    primary_phone: str
+    secondary_phone: Optional[str] = None
+    emergency_phone: str
 
 # Helper Dependency
 async def get_current_emp_id(authorization: str = Header(...)):
@@ -39,6 +42,10 @@ async def get_my_info(emp_id: str = Depends(get_current_emp_id)):
         "name": emp.name,
         "email": emp.email,
         "personal_email": emp.personal_email,
+        "primary_phone": emp.primary_phone,
+        "secondary_phone": emp.secondary_phone,
+        "emergency_phone": emp.emergency_phone,
+        "work_location": emp.work_location,
         "work_lat": emp.work_lat,
         "work_lng": emp.work_lng,
         "geofence_radius": emp.geofence_radius,
@@ -47,12 +54,20 @@ async def get_my_info(emp_id: str = Depends(get_current_emp_id)):
         # "face_photo_count": len(emp.face_photos) if emp.face_photos else 0
     }
 
-@router.post("/me/update-email")
-async def update_personal_email(data: EmailUpdatePayload, emp_id: str = Depends(get_current_emp_id)):
+@router.post("/me/update-profile")
+async def update_profile(data: ProfileUpdatePayload, emp_id: str = Depends(get_current_emp_id)):
     # 1. Validation
-    new_email = data.email.strip().lower()
+    new_email = data.personal_email.strip().lower()
     if not new_email.endswith("@gmail.com"):
         raise HTTPException(status_code=400, detail="enter the valid mail")
+    
+    # Validate phone numbers
+    if not validate_phone(data.primary_phone):
+        raise HTTPException(status_code=400, detail="Primary phone must be 10 digits")
+    if data.secondary_phone and not validate_phone(data.secondary_phone):
+        raise HTTPException(status_code=400, detail="Secondary phone must be 10 digits")
+    if not validate_phone(data.emergency_phone):
+        raise HTTPException(status_code=400, detail="Emergency phone must be 10 digits")
     
     # 2. Update Employee
     emp = await Employee.find_one(Employee.emp_id == emp_id)
@@ -60,9 +75,12 @@ async def update_personal_email(data: EmailUpdatePayload, emp_id: str = Depends(
         raise HTTPException(status_code=404, detail="Employee not found")
     
     emp.personal_email = new_email
+    emp.primary_phone = data.primary_phone
+    emp.secondary_phone = data.secondary_phone
+    emp.emergency_phone = data.emergency_phone
     await emp.save()
     
-    return {"message": "Email updated successfully", "personal_email": new_email}
+    return {"message": "Profile updated successfully"}
 
 @router.get("/me/images")
 async def get_my_face_images(emp_id: str = Depends(get_current_emp_id)):
@@ -334,7 +352,7 @@ async def check_in(data: CheckInPayload, emp_id: str = Depends(get_current_emp_i
     return {"message": "Check-in Successful"}
 
 @router.post("/check-out")
-async def check_out(data: CheckInPayload, emp_id: str = Depends(get_current_emp_id)):
+async def check_out(data: CheckInPayload, background_tasks: BackgroundTasks, emp_id: str = Depends(get_current_emp_id)):
     emp = await Employee.find_one(Employee.emp_id == emp_id)
     if not emp:
          raise HTTPException(status_code=404, detail="Employee not found")
@@ -349,7 +367,38 @@ async def check_out(data: CheckInPayload, emp_id: str = Depends(get_current_emp_
     record = await Attendance.find_one(Attendance.emp_id == emp.emp_id, Attendance.date == today)
     
     if not record or not record.last_in_time:
-        raise HTTPException(status_code=400, detail="Cannot Check-out without Check-in")
+        # Create a checkout request automatically as requested
+        auto_req = Request(
+            emp_id=emp_id,
+            type="CHECK_OUT",
+            reason="Check-in is pending",
+            timestamp=current_time,
+            location_lat=data.lat,
+            location_lng=data.lng,
+            location_failure=False,
+            face_failure=False,
+            status="PENDING"
+        )
+        await auto_req.create()
+        from backend.logger import log_debug
+        log_debug(f"ℹ️ Auto-created check-out request for {emp_id} due to missing check-in")
+        
+        # Email Notification for Admin
+        admin = await Admin.find_one()
+        admin_email = admin.email if admin else "admin@pragyatmika.com" 
+        background_tasks.add_task(
+            send_attendance_request_email,
+            emp_name=emp.name,
+            admin_email=admin_email,
+            emp_id=emp_id,
+            reply_to_email=emp.email,
+            type="CHECK_OUT",
+            reason="Check-in is pending",
+            lat=data.lat,
+            lng=data.lng
+        )
+        
+        return {"message": "Check-out is not possible, now making this as check-out request"}
         
     record.last_out_time = current_time  # Always track last out for session
     
@@ -450,6 +499,7 @@ async def submit_request(data: RequestPayload, background_tasks: BackgroundTasks
         emp_name=emp_name,
         admin_email=admin_email,
         emp_id=emp_id,
+        reply_to_email=emp.email if emp else admin_email,
         type=data.type,
         reason=data.reason,
         lat=data.lat,

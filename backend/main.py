@@ -40,6 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Server reload trigger
 @app.get("/")
 async def root():
     return {"message": "Person Verification HRMS API is running"}

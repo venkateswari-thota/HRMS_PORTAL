@@ -130,15 +130,56 @@ async def get_emp_balances(emp_id: str):
 
 @router.post("/apply")
 async def apply_leave(data: dict, background_tasks: BackgroundTasks):
-    # data: { emp_id, leave_type, from_date, to_date, from_session, to_session, reason }
+    from datetime import timedelta
+    
+    emp_id = data.get("emp_id")
+    from_date_str = data.get("from_date")
+    to_date_str = data.get("to_date")
+    
+    if not all([emp_id, from_date_str, to_date_str]):
+        raise HTTPException(status_code=400, detail="Missing required fields")
+
+    from_date = datetime.strptime(from_date_str, "%Y-%m-%d")
+    to_date = datetime.strptime(to_date_str, "%Y-%m-%d")
+
+    # 1. Fetch data for validation
+    holidays = await Holiday.find().to_list()
+    holiday_dates = {h.date: h.reason for h in holidays}
+    
+    pending = await LeaveRequest.find(LeaveRequest.emp_id == emp_id).to_list()
+    approved = await LeaveApproved.find(LeaveApproved.emp_id == emp_id).to_list()
+    
+    # 2. Iterate through requested range
+    curr = from_date
+    while curr <= to_date:
+        curr_str = curr.strftime("%Y-%m-%d")
+        
+        # A. Sunday Check
+        if curr.weekday() == 6: # Sunday is 6 in Python weekday (Mon=0, Sun=6)
+            raise HTTPException(status_code=400, detail="Looks like it's already your non working day. Please pick different date(s) to apply.")
+        
+        # B. Holiday Check
+        if curr_str in holiday_dates:
+            reason = holiday_dates[curr_str]
+            raise HTTPException(status_code=400, detail="Looks like it's already your non working day. Please pick different date(s) to apply.")
+        
+        # C. Overlap Check (Pending/Approved)
+        # Check if curr_str falls within any existing range
+        for l in (pending + approved):
+            l_from = l.from_date
+            l_to = l.to_date
+            if l_from <= curr_str <= l_to:
+                raise HTTPException(status_code=400, detail="This day leave is already utilized by you.")
+                
+        curr += timedelta(days=1)
+
+    # All checks passed
     req = LeaveRequest(**data)
     await req.create()
 
     # Email Logic
     try:
         emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
-        # Fetch the primary admin specifically if needed, 
-        # but for application we'll send to the system admin email or first found admin
         admin = await Admin.find_one()
         admin_email = admin.email if admin else "admin@pragyatmika.com"
         
@@ -148,7 +189,7 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
                 emp_name=emp.name,
                 admin_email=admin_email,
                 emp_id=emp.emp_id,
-                reply_to_email=emp.personal_email, # Reply to personal email
+                reply_to_email=emp.email,
                 leave_type=data["leave_type"],
                 from_date=data["from_date"],
                 to_date=data["to_date"],
@@ -221,6 +262,29 @@ async def admin_get_leave_requests():
         results.append(d)
     return results
 
+@router.patch("/admin/requests/{request_id}")
+async def admin_update_leave_request(request_id: str, data: dict, admin_email: str = Depends(get_current_admin_email)):
+    req = await LeaveRequest.get(request_id)
+    if not req:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+    
+    # Update fields if provided
+    if "from_date" in data:
+        req.from_date = data["from_date"]
+    if "to_date" in data:
+        req.to_date = data["to_date"]
+    if "reason" in data:
+        req.reason = data["reason"]
+    if "leave_type" in data:
+        req.leave_type = data["leave_type"]
+    if "from_session" in data:
+        req.from_session = data["from_session"]
+    if "to_session" in data:
+        req.to_session = data["to_session"]
+        
+    await req.save()
+    return {"message": "Leave request updated successfully"}
+
 @router.post("/admin/review")
 async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_email: str = Depends(get_current_admin_email)):
     # data: { request_id, action: 'APPROVE' | 'REJECT' }
@@ -277,7 +341,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
         log_debug(f"📧 Queueing status email: {status} for {emp.email} (Admin: {admin_email})")
         background_tasks.add_task(
             send_leave_status_email,
-            recipient_email=emp.personal_email,
+            recipient_email=emp.email,
             emp_name=emp.name,
             admin_email=admin_email,
             status=status,

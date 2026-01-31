@@ -33,7 +33,7 @@ export default function AttendanceSignIn() {
         lng: 0,
         radius: 0
     });
-    const [referenceDescriptors, setReferenceDescriptors] = useState<any>(null);
+    const [hasFaceData, setHasFaceData] = useState<boolean | null>(null);
     const [employeeName, setEmployeeName] = useState('');
 
     useEffect(() => {
@@ -57,27 +57,29 @@ export default function AttendanceSignIn() {
                     radius: empInfo.geofence_radius
                 });
 
-                // Load images from sessionStorage (Pre-loaded on Home)
-                let storedImages = sessionStorage.getItem('face_images');
+                // Check face status (Pre-loaded globally in Layout)
+                let hasFaceImages = sessionStorage.getItem('has_face_images');
 
-                // If not found, check if Home is currently fetching
-                if (!storedImages && sessionStorage.getItem('face_images_fetching')) {
-                    console.log('⏳ Face images are currently being fetched by Home. Waiting...');
+                // If not found, check if global fetch is in progress
+                if (!hasFaceImages && sessionStorage.getItem('face_status_fetching')) {
+                    console.log('⏳ Face status is being checked globally. Waiting...');
                     setStatusMsg('🔄 Syncing face identity data...');
-                    // Retry a few times
                     for (let i = 0; i < 10; i++) {
                         await new Promise(r => setTimeout(r, 1000));
-                        storedImages = sessionStorage.getItem('face_images');
-                        if (storedImages) break;
+                        hasFaceImages = sessionStorage.getItem('has_face_images');
+                        if (hasFaceImages) break;
                     }
                 }
 
-                if (storedImages) {
-                    setReferenceDescriptors(JSON.parse(storedImages));
+                if (hasFaceImages === 'true') {
+                    setHasFaceData(true);
                     if (statusMsg.includes('Syncing')) setStatusMsg('');
-                } else if (!sessionStorage.getItem('face_images_fetching')) {
-                    console.warn('⚠️ Face data missing even after sync check.');
-                    setStatusMsg('❌ Face identity data not found. Please refresh page.');
+                } else if (hasFaceImages === 'false') {
+                    setHasFaceData(false);
+                    setStatusMsg('❌ No registered face images found. Please contact admin.');
+                } else if (!sessionStorage.getItem('face_status_fetching')) {
+                    console.warn('⚠️ Face data status missing.');
+                    setStatusMsg('❌ Face identity status unknown. Please refresh.');
                 }
             } catch (e: any) {
                 console.error('Initialization error:', e);
@@ -404,7 +406,7 @@ export default function AttendanceSignIn() {
                         </div>
 
                         <FaceCheck
-                            referenceDescriptors={referenceDescriptors}
+                            hasFaceData={hasFaceData}
                             onMatchSuccess={handleFaceSuccess}
                             onMatchFail={handleFaceFailure}
                             employeeName={employeeName}

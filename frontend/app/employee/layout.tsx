@@ -51,30 +51,32 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     }, [pathname]);
 
     useEffect(() => {
-        const preloadFaceImages = async () => {
+        const preloadFaceStatus = async () => {
             const token = localStorage.getItem('emp_token');
             if (!token) return;
 
-            if (sessionStorage.getItem('face_images')) return;
-            if (sessionStorage.getItem('face_images_fetching')) return;
+            if (sessionStorage.getItem('has_face_images')) return;
+            if (sessionStorage.getItem('face_status_fetching')) return;
 
-            sessionStorage.setItem('face_images_fetching', 'true');
+            sessionStorage.setItem('face_status_fetching', 'true');
             try {
-                console.log('🔄 [Global] Fetching face images from server...');
-                const imagesData = await apiRequest('/attendance/me/images', 'GET', null, token);
-                if (imagesData?.images?.length) {
-                    sessionStorage.setItem('face_images', JSON.stringify(imagesData.images));
-                    sessionStorage.setItem('face_images_count', imagesData.images.length.toString());
-                    console.log('✅ [Global] Face images pre-loaded successfully');
+                console.log('🔄 [Global] Checking face identity status...');
+                const statusData = await apiRequest('/attendance/me/face-status', 'GET', null, token);
+                if (statusData?.has_face_images) {
+                    sessionStorage.setItem('has_face_images', 'true');
+                    sessionStorage.setItem('face_images_count', statusData.count.toString());
+                    console.log('✅ [Global] Face identity confirmed (Cloud Matching Ready)');
+                } else {
+                    sessionStorage.setItem('has_face_images', 'false');
                 }
             } catch (err) {
-                console.error('❌ [Global] Failed to pre-load images:', err);
+                console.error('❌ [Global] Failed to check face status:', err);
             } finally {
-                sessionStorage.removeItem('face_images_fetching');
+                sessionStorage.removeItem('face_status_fetching');
             }
         };
 
-        preloadFaceImages();
+        preloadFaceStatus();
     }, []);
 
     const handleLogout = () => {

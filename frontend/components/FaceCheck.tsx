@@ -3,14 +3,14 @@ import { useRef, useState, useEffect } from 'react';
 import { Camera, CameraOff, Loader2, CheckCircle, XCircle, Eye } from 'lucide-react';
 
 interface FaceCheckProps {
-    referenceDescriptors: string[] | null;
+    hasFaceData: boolean | null;
     onMatchSuccess: (image?: string) => void;
     onMatchFail: (image?: string) => void;
     employeeName: string;
 }
 
 export default function FaceCheck({
-    referenceDescriptors,
+    hasFaceData,
     onMatchSuccess,
     onMatchFail,
     employeeName
@@ -219,7 +219,7 @@ export default function FaceCheck({
                     <>
                         <button
                             onClick={captureAndMatch}
-                            disabled={isMatching || !referenceDescriptors}
+                            disabled={isMatching || hasFaceData === null}
                             className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:cursor-not-allowed"
                         >
                             {isMatching ? (
@@ -227,7 +227,7 @@ export default function FaceCheck({
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                     Verifying...
                                 </>
-                            ) : !referenceDescriptors ? (
+                            ) : hasFaceData === null ? (
                                 <>
                                     <Loader2 className="w-5 h-5 animate-spin" />
                                     Syncing Identity...

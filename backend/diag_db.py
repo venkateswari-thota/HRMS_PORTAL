@@ -2,10 +2,14 @@ import asyncio
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from backend.models import Admin, Employee
+from dotenv import load_dotenv
 import os
 
+# Load Environment Variables
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
 async def diag():
-    MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://venkateswari:venky12345@cluster0.iimbsjk.mongodb.net/")
+    MONGO_URL = os.getenv("MONGO_URL")
     client = AsyncIOMotorClient(MONGO_URL)
     db = client["hrms"]
     await init_beanie(db, document_models=[Admin, Employee])

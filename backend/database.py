@@ -1,14 +1,16 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from dotenv import load_dotenv
 import os
 
 from .models import Admin, Employee, Attendance, Request, Approved, LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday, WorkLocation
 
-# MongoDB URL
-MONGO_URL = os.getenv("MONGO_URL", "mongodb+srv://venkateswari:venky12345@cluster0.iimbsjk.mongodb.net/")
-DB_NAME = "hrms"
+# Load Environment Variables
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+# MongoDB Configuration
+MONGO_URL = os.getenv("MONGO_URL")
+DB_NAME = os.getenv("DB_NAME", "hrms")
 
 async def init_db():
     client = AsyncIOMotorClient(MONGO_URL)

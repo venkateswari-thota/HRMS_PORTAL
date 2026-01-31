@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Header, BackgroundTasks
 from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
 import math
+import os
 from backend.models import Attendance, Employee, Request, Admin
 from backend.email_utils import send_attendance_request_email
 from typing import Optional
@@ -81,6 +82,37 @@ async def update_profile(data: ProfileUpdatePayload, emp_id: str = Depends(get_c
     await emp.save()
     
     return {"message": "Profile updated successfully"}
+
+@router.get("/me/face-status")
+async def get_face_status(emp_id: str = Depends(get_current_emp_id)):
+    """
+    Check if employee has face images in S3 (Lightweight status check)
+    """
+    try:
+        emp = await Employee.find_one(Employee.emp_id == emp_id)
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+        s3_client = boto3.client('s3')
+        bucket_name = os.getenv("AWS_S3_BUCKET", "hrms-employee-faces")
+        prefix = f"employees/{emp.email}/"
+        
+        response = s3_client.list_objects_v2(
+            Bucket=bucket_name,
+            Prefix=prefix
+        )
+        
+        # Valid image extensions
+        valid_ext = ('.jpg', '.jpeg', '.png')
+        image_keys = [obj['Key'] for obj in response.get('Contents', []) if obj['Key'].lower().endswith(valid_ext)]
+        
+        return {
+            "has_face_images": len(image_keys) > 0,
+            "count": len(image_keys)
+        }
+    except Exception as e:
+        print(f"❌ Error checking face status: {e}")
+        return {"has_face_images": False, "count": 0, "error": str(e)}
 
 @router.get("/me/images")
 async def get_my_face_images(emp_id: str = Depends(get_current_emp_id)):
@@ -203,25 +235,21 @@ async def match_face(
     emp_id: str = Depends(get_current_emp_id)
 ):
     """
-    Match employee face against S3 reference images with blink detection
+    Match employee face using AWS Rekognition against S3 reference images
     """
     try:
-        from backend.opencv_face_service import face_service
-        
-        # Load models if not already loaded
-        if face_service.eye_cascade is None:
-            face_service.load_models()
+        from backend.rekognition_service import rekognition_service
         
         # Get employee
         emp = await Employee.find_one(Employee.emp_id == emp_id)
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
         
-        print(f"🔍 Face matching request for {emp.email}")
+        print(f"🔍 AWS Face matching request for {emp.email}")
         
-        # Load reference images from S3
+        # 1. Get the list of reference image keys from S3 for this specific employee
         s3_client = boto3.client('s3')
-        bucket_name = 'hrms-employee-faces'
+        bucket_name = os.getenv("AWS_S3_BUCKET", "hrms-employee-faces")
         prefix = f"employees/{emp.email}/"
         
         response = s3_client.list_objects_v2(
@@ -232,65 +260,32 @@ async def match_face(
         if 'Contents' not in response:
             raise HTTPException(
                 status_code=404,
-                detail="No reference images found in S3"
+                detail="No registered face images found. Please ask Admin to upload your reference photos."
             )
         
-        # Get image keys
+        # Get image keys (face_0.jpeg, etc.)
         image_keys = [
             obj['Key'] for obj in response['Contents'] 
             if obj['Key'].endswith(('.jpg', '.jpeg', '.png'))
         ]
         
         if len(image_keys) == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="No reference images found"
-            )
-        
-        print(f"📥 Loading {len(image_keys)} reference images from S3")
-        
-        # Download and convert reference images
-        reference_images = []
-        for key in image_keys:
-            obj_response = s3_client.get_object(Bucket=bucket_name, Key=key)
-            image_data = obj_response['Body'].read()
+            raise HTTPException(status_code=404, detail="Reference images are missing.")
             
-            # Convert to OpenCV format
-            nparr = np.frombuffer(image_data, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            reference_images.append(img)
+        print(f"🛰️ Sending live image and {len(image_keys)} S3 references to AWS Rekognition...")
         
-        print(f"✅ Loaded {len(reference_images)} reference images")
+        # 2. Call AWS Rekognition to compare
+        result = rekognition_service.compare_live_against_s3(request.image, image_keys)
         
-        # Extract features from reference images
-        reference_features = face_service.create_face_features(reference_images)
-        
-        if len(reference_features) == 0:
-            raise HTTPException(
-                status_code=500,
-                detail="Could not extract features from reference images"
-            )
-        
-        print(f"✅ Extracted features from {len(reference_features)} images")
-        
-        # Convert test image from base64
-        test_image = face_service.base64_to_image(request.image)
-        
-        # Perform face matching
-        result = face_service.match_face(test_image, reference_features)
-        
-        print(f"🎯 Match result: {result}")
+        print(f"🎯 AWS Result: {result.get('matched')} (Confidence: {result.get('confidence')}%)")
         
         return result
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error in face matching: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing face match: {str(e)}"
-        )
+        print(f"❌ Error in AWS face matching: {e}")
+        raise HTTPException(status_code=500, detail=f"AWS Rekognition Error: {str(e)}")
 
 
 @router.get("/profile")

@@ -1,17 +1,17 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, UploadFile, File, Form, Header
-from backend.logger import log_debug
+from logger import log_debug
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from typing import List, Optional
-from backend.models import Employee, Admin, Request, Attendance, Approved, WorkLocation
-from backend.utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM, validate_phone
-from backend.s3_service import S3Service
+from models import Employee, Admin, Request, Attendance, Approved, WorkLocation
+from utils import create_access_token, get_password_hash, SECRET_KEY, ALGORITHM, validate_phone
+from s3_service import S3Service
 from jose import jwt
 import random
 import string
 import re
 
-from backend.email_utils import send_credentials_email, send_attendance_status_email
+from email_utils import send_credentials_email, send_attendance_status_email
 
 # --- Helper Dependency ---
 async def get_current_admin_email(authorization: str = Header(...)):
@@ -326,6 +326,7 @@ async def review_request(data: ApprovalPayload, background_tasks: BackgroundTask
         # Move to approved collection
         approved = Approved(
             emp_id=req.emp_id,
+            emp_name=req.emp_name, # Transfer name
             type=req.type,
             reason=req.reason,
             timestamp=req.timestamp,

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from backend.logger import log_debug
+from logger import log_debug
 from typing import List
 from datetime import datetime
-from backend.models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
-from backend.email_utils import send_leave_request_email, send_leave_status_email
-from backend.utils import SECRET_KEY, ALGORITHM
+from models import LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, Employee, LeaveBalance, Holiday, Admin
+from email_utils import send_leave_request_email, send_leave_status_email
+from utils import SECRET_KEY, ALGORITHM
 from jose import jwt
 from fastapi import Header
 
@@ -110,20 +110,40 @@ async def get_emp_balances(emp_id: str):
         "Paid Leave": "paid_leave"
     }
 
+    # Fetch holidays once for efficiency
+    holidays = await Holiday.find().to_list()
+    holiday_dates = {h.date for h in holidays}
+    from datetime import timedelta
+
     results = []
     for display_name, key in categories.items():
-        # Count approved leaves for this category
-        used_count = await LeaveApproved.find(
+        # Fetch all approved leaves for this category
+        approved_leaves = await LeaveApproved.find(
             LeaveApproved.emp_id == emp_id,
             LeaveApproved.leave_type == display_name
-        ).count()
+        ).to_list()
+
+        # Calculate total work days used
+        total_used_days = 0
+        for leave in approved_leaves:
+            curr = datetime.strptime(leave.from_date, "%Y-%m-%d")
+            end = datetime.strptime(leave.to_date, "%Y-%m-%d")
+            
+            while curr <= end:
+                curr_str = curr.strftime("%Y-%m-%d")
+                is_sunday = curr.weekday() == 6
+                is_holiday = curr_str in holiday_dates
+                
+                if not is_sunday and not is_holiday:
+                    total_used_days += 1
+                curr += timedelta(days=1)
 
         granted_val = granted_data.get(key, 0)
         results.append({
             "category": display_name,
             "granted": granted_val,
-            "used": used_count,
-            "balance": granted_val - used_count
+            "used": total_used_days,
+            "balance": granted_val - total_used_days
         })
 
     return results
@@ -135,8 +155,9 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
     emp_id = data.get("emp_id")
     from_date_str = data.get("from_date")
     to_date_str = data.get("to_date")
+    leave_type = data.get("leave_type")
     
-    if not all([emp_id, from_date_str, to_date_str]):
+    if not all([emp_id, from_date_str, to_date_str, leave_type]):
         raise HTTPException(status_code=400, detail="Missing required fields")
 
     from_date = datetime.strptime(from_date_str, "%Y-%m-%d")
@@ -149,37 +170,80 @@ async def apply_leave(data: dict, background_tasks: BackgroundTasks):
     pending = await LeaveRequest.find(LeaveRequest.emp_id == emp_id).to_list()
     approved = await LeaveApproved.find(LeaveApproved.emp_id == emp_id).to_list()
     
-    # 2. Iterate through requested range
+    # 2. Map leave type to balance field
+    categories = {
+        "Optional Holiday": "optional_holiday",
+        "Comp Off": "comp_off",
+        "Paternity Leave": "paternity_leave",
+        "Work From Home - Contract": "wfh_contract",
+        "Paid Leave": "paid_leave"
+    }
+    
+    balance_field = categories.get(leave_type)
+    emp_balance = await LeaveBalance.find_one(LeaveBalance.emp_id == emp_id)
+    
+    # 3. Iterate through requested range to count actual leave days and check overlaps
     curr = from_date
+    requested_work_days = 0
     while curr <= to_date:
         curr_str = curr.strftime("%Y-%m-%d")
         
-        # A. Sunday Check
-        if curr.weekday() == 6: # Sunday is 6 in Python weekday (Mon=0, Sun=6)
-            raise HTTPException(status_code=400, detail="Looks like it's already your non working day. Please pick different date(s) to apply.")
+        # Skip Sundays and Holidays for both counting and overlap checks
+        is_sunday = curr.weekday() == 6
+        is_holiday = curr_str in holiday_dates
         
-        # B. Holiday Check
-        if curr_str in holiday_dates:
-            reason = holiday_dates[curr_str]
-            raise HTTPException(status_code=400, detail="Looks like it's already your non working day. Please pick different date(s) to apply.")
-        
-        # C. Overlap Check (Pending/Approved)
-        # Check if curr_str falls within any existing range
-        for l in (pending + approved):
-            l_from = l.from_date
-            l_to = l.to_date
-            if l_from <= curr_str <= l_to:
-                raise HTTPException(status_code=400, detail="This day leave is already utilized by you.")
+        if not is_sunday and not is_holiday:
+            requested_work_days += 1
+            
+            # Check Overlap only on work days
+            for l in (pending + approved):
+                if l.from_date <= curr_str <= l.to_date:
+                    raise HTTPException(status_code=400, detail=f"The date {curr_str} is already covered by another leave request.")
                 
         curr += timedelta(days=1)
 
+    if requested_work_days == 0:
+        raise HTTPException(status_code=400, detail="The selected date range only contains non-working days (Sundays/Holidays).")
+
+    # 4. Balance Check (if applicable)
+    if balance_field:
+        if not emp_balance:
+            raise HTTPException(status_code=400, detail=f"No leave balance set for this employee. Cannot apply for {leave_type}.")
+        
+        granted_val = getattr(emp_balance, balance_field, 0)
+        # Calculate used
+        used_count = await LeaveApproved.find(
+            LeaveApproved.emp_id == emp_id,
+            LeaveApproved.leave_type == leave_type
+        ).count()
+        
+        # Check pending requests for this type to prevent double dipping
+        pending_count = 0
+        for p in pending:
+            if p.leave_type == leave_type:
+                # Count days in pending (rough estimate for simplicity)
+                p_from = datetime.strptime(p.from_date, "%Y-%m-%d")
+                p_to = datetime.strptime(p.to_date, "%Y-%m-%d")
+                p_curr = p_from
+                while p_curr <= p_to:
+                    if p_curr.weekday() != 6 and p_curr.strftime("%Y-%m-%d") not in holiday_dates:
+                        pending_count += 1
+                    p_curr += timedelta(days=1)
+
+        available = granted_val - used_count - pending_count
+        if available < requested_work_days:
+            raise HTTPException(status_code=400, detail=f"Insufficient balance. You have {available} days available for {leave_type}, but requested {requested_work_days} work days.")
+
+    # Fetch employee for name
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
+    emp_name = emp.name if emp else "Unknown Employee"
+
     # All checks passed
-    req = LeaveRequest(**data)
+    req = LeaveRequest(**data, emp_name=emp_name)
     await req.create()
 
     # Email Logic
     try:
-        emp = await Employee.find_one(Employee.emp_id == data["emp_id"])
         admin = await Admin.find_one()
         admin_email = admin.email if admin else "admin@pragyatmika.com"
         
@@ -238,6 +302,7 @@ async def withdraw_leave(data: dict):
     # Move to withdrawn
     withdrawn = LeaveWithdrawn(
         emp_id=req.emp_id,
+        emp_name=req.emp_name, # Transfer name
         leave_type=req.leave_type,
         from_date=req.from_date,
         to_date=req.to_date,
@@ -300,6 +365,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
     if data["action"] == "APPROVE":
         approved = LeaveApproved(
             emp_id=req.emp_id,
+            emp_name=req.emp_name, # Transfer name
             leave_type=req.leave_type,
             from_date=req.from_date,
             to_date=req.to_date,
@@ -315,6 +381,7 @@ async def review_leave(data: dict, background_tasks: BackgroundTasks, admin_emai
     elif data["action"] == "REJECT":
         rejected = LeaveRejected(
             emp_id=req.emp_id,
+            emp_name=req.emp_name, # Transfer name
             leave_type=req.leave_type,
             from_date=req.from_date,
             to_date=req.to_date,
@@ -368,28 +435,24 @@ async def setup_holidays(data: dict):
         raise HTTPException(status_code=400, detail="Year is required")
 
     try:
-        if month:
-            # Surgical operation for a specific month
-            month_str = f"{year}-{int(month):02d}-"
-            
-            # 1. Delete existing records for THIS month only using raw filter for regex
-            await Holiday.find({"year": int(year), "date": {"$regex": f"^{month_str}"}}).delete()
-            
-            # 2. Filter list to ONLY allow dates belonging to this month (safety check)
-            holidays_to_save = [h for h in holidays_list if h["date"].startswith(month_str)]
-        else:
-            # Clear entire year if no month is specified (Bulk Setup Mode)
-            await Holiday.find(Holiday.year == int(year)).delete()
-            holidays_to_save = holidays_list
+        # 1. UPSERT logic (Update or Insert) - No more full-month deletions
+        # This allows the frontend to send an empty form for ADDING without wiping existing data.
+        holidays_to_save = holidays_list
         
-        # Batch create the validated list
+        # 2. Process the provided list
         for h in holidays_to_save:
-            new_h = Holiday(
-                date=h["date"],
-                reason=h["reason"],
-                year=int(year)
-            )
-            await new_h.create()
+            # Simple check if already exists (safeguard)
+            exists = await Holiday.find_one(Holiday.date == h["date"])
+            if exists:
+                exists.reason = h["reason"]
+                await exists.save()
+            else:
+                new_h = Holiday(
+                    date=h["date"],
+                    reason=h["reason"],
+                    year=int(year)
+                )
+                await new_h.create()
         
         return {"message": "Holidays synchronized successfully"}
     except Exception as e:

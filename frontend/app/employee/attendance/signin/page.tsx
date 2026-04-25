@@ -105,10 +105,12 @@ export default function AttendanceSignIn() {
             setLocationStatus('passed');
         } else {
             setLocationStatus('failed');
-            // Check if it was a timeout (lat/lng = 0)
-            if (lat === 0) {
-                setStatusMsg('❌ Location verification timed out. Please try again or use the request link.');
-            }
+            setStatusMsg('❌ Location mismatch. Redirecting to request submission...');
+            setTimeout(() => {
+                sessionStorage.setItem('failure_mode', 'location');
+                sessionStorage.setItem('request_type', 'CHECK_IN');
+                router.push('/employee/attendance/request-signin');
+            }, 2000);
         }
     }, []); // Empty deps because we only need to set state
 
@@ -156,19 +158,14 @@ export default function AttendanceSignIn() {
     const handleFaceFailure = (image?: string) => {
         setFaceStatus('failed');
         setShowCamera(false);
-        if (image) {
-            setCapturedImage(image);
-            sessionStorage.setItem('last_face_failure', image);
-        }
-
-        let reason = "Face matching failed";
-        if (locationStatus === 'failed') {
-            reason = "Location and Face matching failure";
-        } else {
-            reason = "Face matching failure";
-        }
-        setStatusMsg(`❌ Sign in request due to ${reason}`);
+        setStatusMsg('❌ Face mismatch. Redirecting to request submission...');
+        setTimeout(() => {
+            sessionStorage.setItem('failure_mode', 'face');
+            sessionStorage.setItem('request_type', 'CHECK_IN');
+            router.push('/employee/attendance/request-signin');
+        }, 2000);
     };
+
 
     const handleGoToRequest = (failureType: 'location' | 'face' | 'both') => {
         sessionStorage.setItem('failure_mode', failureType);
@@ -307,24 +304,28 @@ export default function AttendanceSignIn() {
 
                                     {/* Failure Case: Face Fail */}
                                     {locationStatus === 'passed' && faceStatus === 'failed' && (
-                                        <button
-                                            onClick={() => handleGoToRequest('face')}
-                                            className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
-                                        >
-                                            <AlertTriangle size={20} />
-                                            Sign in request due to face matching fail
-                                        </button>
+                                        <div className="flex flex-col gap-3 items-end">
+                                            <button
+                                                onClick={() => handleGoToRequest('face')}
+                                                className="px-8 py-2 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                                            >
+                                                <AlertTriangle size={14} />
+                                                Sign in request due to face matching fail
+                                            </button>
+                                        </div>
                                     )}
 
                                     {/* Failure Case: Both Fail */}
                                     {locationStatus === 'failed' && faceStatus === 'failed' && (
-                                        <button
-                                            onClick={() => handleGoToRequest('both')}
-                                            className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"
-                                        >
-                                            <AlertTriangle size={20} />
-                                            Sign in request due to location and face failure
-                                        </button>
+                                        <div className="flex flex-col gap-3 items-end">
+                                            <button
+                                                onClick={() => handleGoToRequest('both')}
+                                                className="px-8 py-2 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 text-xs font-bold rounded-xl transition-all flex items-center gap-2"
+                                            >
+                                                <AlertTriangle size={14} />
+                                                Sign in request due to location and face failure
+                                            </button>
+                                        </div>
                                     )}
                                 </>
                             )}

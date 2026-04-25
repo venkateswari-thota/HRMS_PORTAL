@@ -1,26 +1,124 @@
 @import "tailwindcss";
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
+  /* Light Mode Palette */
+  --bg-page: #f8fafc;
+  --bg-card: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --accent-blue: #2563eb;
+  --accent-purple: #9333ea;
+  
+  --foreground-rgb: 15, 23, 42;
+  --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 255, 255, 255;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    /* Dark Mode Palette */
+    --bg-page: #020617;
+    --bg-card: #0f172a;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --border: #1e293b;
+    --accent-blue: #3b82f6;
+    --accent-purple: #a855f7;
+
+    --foreground-rgb: 248, 250, 252;
+    --background-start-rgb: 2, 6, 23;
+    --background-end-rgb: 15, 23, 42;
   }
 }
 
+/* Global Styles */
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+  background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
   font-family: 'Inter', sans-serif;
-  @apply antialiased;
+  @apply antialiased min-h-screen transition-colors duration-300;
+}
+
+/* 
+  FORCE OVERRIDES for Tailwind utilities in Dark Mode
+  This ensures that hardcoded light-mode classes automatically adapt.
+*/
+@media (prefers-color-scheme: dark) {
+  /* Backgrounds */
+  .bg-white {
+    background-color: var(--bg-card) !important;
+  }
+
+  .bg-slate-50,
+  .bg-gray-50,
+  .bg-zinc-50,
+  .bg-neutral-50 {
+    background-color: var(--bg-page) !important;
+  }
+
+  .bg-slate-100,
+  .bg-gray-100 {
+    background-color: var(--border) !important;
+  }
+
+  /* Soft accents often used in dashboards */
+  .bg-blue-50, .bg-indigo-50, .bg-purple-50 {
+    background-color: rgba(37, 99, 235, 0.1) !important;
+  }
+
+  /* Text Colors */
+  .text-gray-900,
+  .text-slate-900,
+  .text-black,
+  .text-zinc-900,
+  .text-neutral-900 {
+    color: var(--text-primary) !important;
+  }
+
+  .text-gray-800,
+  .text-gray-700,
+  .text-slate-800,
+  .text-slate-700 {
+    color: var(--text-primary) !important;
+    opacity: 0.9;
+  }
+
+  .text-gray-600,
+  .text-gray-500,
+  .text-slate-600,
+  .text-slate-500 {
+    color: var(--text-secondary) !important;
+  }
+
+  .text-gray-400,
+  .text-slate-400 {
+    color: var(--text-muted) !important;
+  }
+
+  /* Borders */
+  .border-gray-100,
+  .border-gray-200,
+  .border-slate-100,
+  .border-slate-200 {
+    border-color: var(--border) !important;
+  }
+
+  /* Inputs adaptation */
+  input,
+  textarea,
+  select {
+    background-color: var(--bg-page) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* Shadows in dark mode */
+  .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2) !important;
+  }
 }
 
 /* Premium Utilities */
@@ -36,21 +134,10 @@ body {
   @apply w-full py-3 px-6 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-lg hover:shadow-blue-500/30 transition-all transform hover:-translate-y-0.5;
 }
 
-/* Hide unwanted third-party widgets or extensions */
+/* Hide unwanted third-party widgets */
 [style*="position: fixed"][style*="bottom"][style*="left"],
 [class*="widget"][style*="position: fixed"],
 [id*="chat"][style*="position: fixed"],
 [id*="notification"][style*="position: fixed"] {
   display: none !important;
-}
-
-/* Hide Next.js Development Indicator */
-nextjs-portal,
-[data-nextjs-dialog-overlay],
-[data-nextjs-toast],
-button[data-nextjs-errors-dialog-left-right-close-button] {
-  display: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
+}

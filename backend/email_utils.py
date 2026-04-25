@@ -1,5 +1,5 @@
 import smtplib
-from backend.logger import log_debug
+from logger import log_debug
 import os
 from dotenv import load_dotenv
 from email.mime.text import MIMEText

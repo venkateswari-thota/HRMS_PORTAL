@@ -45,6 +45,7 @@ class Attendance(Document):
 
 class Request(Document):
     emp_id: str
+    emp_name: str = "Unknown"  # Add name for admin clarity
     type: str               # "CHECK_IN" or "CHECK_OUT"
     reason: str
     timestamp: datetime
@@ -62,6 +63,7 @@ class Request(Document):
 class Approved(Document):
     """Approved requests moved from requests collection"""
     emp_id: str
+    emp_name: str = "Unknown"
     type: str               # "CHECK_IN" or "CHECK_OUT"
     reason: str
     timestamp: datetime     # Original request timestamp
@@ -79,6 +81,7 @@ class Approved(Document):
 
 class LeaveRequest(Document):
     emp_id: str
+    emp_name: str = "Unknown"
     leave_type: str        # Loss of Pay, Paternity, Comp Off, WFH, Paid Leave
     from_date: str         # YYYY-MM-DD
     to_date: str           # YYYY-MM-DD
@@ -94,6 +97,7 @@ class LeaveRequest(Document):
 
 class LeaveApproved(Document):
     emp_id: str
+    emp_name: str = "Unknown"
     leave_type: str
     from_date: str
     to_date: str
@@ -110,6 +114,7 @@ class LeaveApproved(Document):
 
 class LeaveRejected(Document):
     emp_id: str
+    emp_name: str = "Unknown"
     leave_type: str
     from_date: str
     to_date: str
@@ -126,6 +131,7 @@ class LeaveRejected(Document):
 
 class LeaveWithdrawn(Document):
     emp_id: str
+    emp_name: str = "Unknown"
     leave_type: str
     from_date: str
     to_date: str

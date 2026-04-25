@@ -3,11 +3,11 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime, timezone
 import math
 import os
-from backend.models import Attendance, Employee, Request, Admin
-from backend.email_utils import send_attendance_request_email
+from models import Attendance, Employee, Request, Admin
+from email_utils import send_attendance_request_email
 from typing import Optional
 from jose import jwt
-from backend.utils import SECRET_KEY, ALGORITHM, validate_phone
+from utils import SECRET_KEY, ALGORITHM, validate_phone
 import boto3
 import cv2
 import numpy as np
@@ -238,7 +238,7 @@ async def match_face(
     Match employee face using AWS Rekognition against S3 reference images
     """
     try:
-        from backend.rekognition_service import rekognition_service
+        from rekognition_service import rekognition_service
         
         # Get employee
         emp = await Employee.find_one(Employee.emp_id == emp_id)
@@ -365,6 +365,7 @@ async def check_out(data: CheckInPayload, background_tasks: BackgroundTasks, emp
         # Create a checkout request automatically as requested
         auto_req = Request(
             emp_id=emp_id,
+            emp_name=emp.name, # Store name for admin
             type="CHECK_OUT",
             reason="Check-in is pending",
             timestamp=current_time,
@@ -375,7 +376,7 @@ async def check_out(data: CheckInPayload, background_tasks: BackgroundTasks, emp
             status="PENDING"
         )
         await auto_req.create()
-        from backend.logger import log_debug
+        from logger import log_debug
         log_debug(f"ℹ️ Auto-created check-out request for {emp_id} due to missing check-in")
         
         # Email Notification for Admin
@@ -464,9 +465,14 @@ class RequestPayload(BaseModel):
 @router.post("/request")
 async def submit_request(data: RequestPayload, background_tasks: BackgroundTasks, emp_id: str = Depends(get_current_emp_id)):
     print(f"DEBUG: Processing {data.type} request for {emp_id}")
+    # Get Employee details for name
+    emp = await Employee.find_one(Employee.emp_id == emp_id)
+    emp_name = emp.name if emp else "Unknown Employee"
+
     # Create Request
     req = Request(
         emp_id=emp_id,
+        emp_name=emp_name, # Store name for admin
         type=data.type,
         reason=data.reason,
         timestamp=datetime.now(),

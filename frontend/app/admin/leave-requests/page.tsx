@@ -110,12 +110,15 @@ export default function AdminLeaveRequestsPage() {
                                 <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
                                     <div className="space-y-4 flex-1 w-full">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold">
-                                                {req.emp_id.substring(0, 2)}
+                                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-bold text-xs uppercase">
+                                                {req.emp_name ? req.emp_name.substring(0, 2) : req.emp_id.substring(0, 2)}
                                             </div>
                                             <div>
-                                                <h3 className="font-bold text-gray-900">{req.emp_id}</h3>
-                                                <p className="text-xs text-gray-400 font-mono">Applied on: {new Date(req.applied_on).toLocaleString()}</p>
+                                                <h3 className="font-bold text-gray-900">{req.emp_name || "Unknown Employee"}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-[10px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded uppercase">{req.emp_id}</p>
+                                                    <p className="text-xs text-gray-400 font-mono italic">Applied on: {new Date(req.applied_on).toLocaleString()}</p>
+                                                </div>
                                             </div>
                                         </div>
 

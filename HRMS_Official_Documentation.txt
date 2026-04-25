@@ -1,0 +1,111 @@
+HRMS Portal - Official Master Technical Guide (A-Z)
+
+📋 Table of Contents
+1. Project Overview
+2. Technical Architecture
+   - AWS Infrastructure (S3 & Rekognition)
+   - Database (MongoDB Atlas on AWS)
+3. Admin Module
+   - Registration & Authentication
+   - Organizational Management
+   - Leave & Holiday Administration
+4. Employee Module
+   - Authentication & Profile
+   - Attendance Flow (Face Matching & Geofencing)
+   - Leave Application System
+5. Attendance Scenario Analysis (A & B)
+6. Setup & Deployment
+
+---
+
+🌟 Project Overview
+The HRMS (Human Resource Management System) Portal is a enterprise-grade solution designed to automate organizational management. It delivers a premium user experience with high-security features like Face Verification and Geofencing, ensuring that attendance data is 100% accurate and tamper-proof.
+
+---
+
+🏗️ Technical Architecture
+
+AWS Infrastructure (S3 & Rekognition)
+The system leverages the power of Amazon Web Services for media and security:
+- AWS S3: Stores employee profile and face-verification images. This ensures fast, secure, and scalable access to media assets without bloating the local server.
+- AWS Rekognition: Used for Face Comparison. When an employee checks in, the system captures their live face and compares it against the "Golden Image" stored in S3. It returns a precision similarity score to the backend.
+
+Database (MongoDB Atlas on AWS)
+The database has been migrated from local storage to MongoDB Atlas, physically hosted on AWS Infrastructure.
+- Security: Controlled via IP Whitelisting (Currently set to 0.0.0.0/0 for global access).
+- Persistence: Ensures that employee data, attendance logs, and leave records are accessible from anywhere in the world with zero hardware maintenance.
+- Connection URI: mongodb+srv://HRMS-Production:HRMSmongo123@hrms-production.jimcjml.mongodb.net/hrms
+
+---
+
+👩‍💼 Admin Module
+
+1. Registration & Authentication
+- Admin Signup: A secure signup page (/auth/admin/signup) where the initial administrator can register.
+- Admin Signin: A dedicated login portal (/auth/admin/signin) that provides a JWT token for full system access.
+- Access Control: Only verified admins can manage employee records and approvals.
+
+2. Organizational Management
+- Employee Onboarding: Admins can register new employees by providing their details and uploading face verification photos directly to the cloud.
+- Employee Directory: A centralized view of all staff with the ability to edit details, update locations, and change contact information via a sleek modal interface.
+- Work Locations: Define physical office boundaries by setting Names and GPS Coordinates (Latitude/Longitude). These are synchronized with employee profiles to enable Geofencing.
+
+3. Leave & Holiday Administration
+- Holiday Setup: A surgical management tool where admins can add holidays for specific months or years. The system supports Duplicate Detection to prevent overlapping dates.
+- Leave Balances: Global setup for annual leave quotas.
+
+---
+
+👨‍💻 Employee Portal
+
+1. Authentication & Profile
+- Employee Login: Dedicated portal (/auth/employee/signin) for staff.
+- Profile Management: Employees can update their personal contact details and residential address, ensuring the organization always has the latest info.
+
+2. Attendance Flow (Face Matching & Geofencing)
+The most critical part of the system. To Check-in or Check-out, the employee must pass two gates:
+- Gate 1: Facematching: Live capture compared against S3 data using AWS Rekognition.
+- Gate 2: Geofencing: Browser GPS must be within the defined radius (e.g., 100m) of their assigned Work Location.
+
+3. Leave Application System
+A highly intelligent flow that prevents invalid requests:
+- Strict Validations:
+  - No Sundays/Holidays: The system detects non-working days in real-time.
+  - No Active Overlaps: Prevents applying for dates already in PENDING or APPROVED status.
+  - Correction Allowed: Employees can re-apply for dates that were previously WITHDRAWN or REJECTED.
+- Validation Trigger: Logic fires immediately upon selecting the "To Date" to provide instant feedback.
+
+---
+
+🔄 Attendance Scenario Analysis (A & B)
+
+Scenario A: Manual Request Creation
+- Trigger: When an employee is physically present but verification fails (e.g., bad lighting for face match or weak GPS signal).
+- Process: The employee clicks "Apply for Attendance Request" and provides a reason.
+- Admin View: The request appears in the Admin Dashboard with the employee's reason. Admin can then approve to manually create the attendance log.
+
+Scenario B: Auto-Generated Check-out Request
+- Trigger: When an employee attempts to Sign Out but forgot to Sign In earlier that day.
+- Process: The system identifies the missing log and automatically generates a Check-out request.
+- UI Message: The employee sees: "this will go with check-out request".
+- Admin View: The admin sees the request with the automated reason: "Check-in is pending". 
+- Safety Restriction: The system blocks the admin from approving this Check-out until the related Check-in is handled, ensuring data integrity.
+
+---
+
+🛠️ Setup & Deployment
+
+1.  Environment Variables: Configure .env with AWS Keys, SMTP details, and the MongoDB Atlas Connection URI.
+2.  Backend Setup:
+    - Install dependencies from requirements.txt.
+    - Run: uvicorn backend.main:app --reload
+3.  Frontend Setup:
+    - Navigate to frontend folder.
+    - Run: npm install
+    - Run: npm run dev
+4.  Production Readiness:
+    - The code includes a clean packaging command to exclude .venv and node_modules for easy cloud transfers.
+
+---
+
+© 2026 HRMS Portal Development Team | Document Rev 1.0

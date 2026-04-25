@@ -157,7 +157,7 @@ export default function AdminRequestsPage() {
                                                         <User className="text-gray-400" size={24} />
                                                     </div>
                                                     <div>
-                                                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">{req.name || req.emp_id}</h3>
+                                                        <h3 className="text-2xl font-black text-gray-900 tracking-tight">{req.emp_name || req.emp_id}</h3>
                                                         <p className="text-xs text-blue-500 font-bold tracking-wider">{req.emp_id}</p>
                                                     </div>
                                                 </div>
@@ -168,17 +168,19 @@ export default function AdminRequestsPage() {
                                             </div>
 
                                             <div className="flex flex-wrap items-center gap-4 pt-2">
-                                                <a
-                                                    href={`https://www.google.com/maps?q=${req.location_lat},${req.location_lng}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="group flex flex-col bg-white p-3 rounded-2xl border border-gray-100 shadow-sm hover:border-blue-500 hover:shadow-blue-50 transition-all"
-                                                >
-                                                    <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 flex items-center gap-1">
-                                                        <MapPin size={10} /> Location Coordinates
-                                                    </span>
-                                                    <span className="text-xs font-bold text-blue-600 group-hover:underline">{req.location_lat.toFixed(5)}, {req.location_lng.toFixed(5)}</span>
-                                                </a>
+                                                {req.location_failure && (
+                                                    <a
+                                                        href={`https://www.google.com/maps?q=${req.location_lat},${req.location_lng}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="group flex flex-col bg-white p-3 rounded-2xl border border-gray-100 shadow-sm hover:border-blue-500 hover:shadow-blue-50 transition-all"
+                                                    >
+                                                        <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                            <MapPin size={10} /> Location Coordinates
+                                                        </span>
+                                                        <span className="text-xs font-bold text-blue-600 group-hover:underline">{req.location_lat.toFixed(5)}, {req.location_lng.toFixed(5)}</span>
+                                                    </a>
+                                                )}
 
                                                 <div className="hidden lg:flex flex-col bg-yellow-50/50 p-3 rounded-2xl border border-yellow-100 shadow-sm">
                                                     <span className="text-[9px] font-black text-yellow-400 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -190,7 +192,7 @@ export default function AdminRequestsPage() {
                                         </div>
 
                                         {/* Image Verification */}
-                                        {req.face_image && (
+                                        {req.face_failure && req.face_image && (
                                             <div className="w-full lg:w-56 shrink-0 space-y-3">
                                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Identity Verification</p>
                                                 <div

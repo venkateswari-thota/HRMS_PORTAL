@@ -1,0 +1,42 @@
+# HRMS Portal - Final Resolution Report
+# Date: April 25, 2026
+
+============================================================
+Problem 1: Dark Mode Support
+============================================================
+Status: RESOLVED
+How it was fixed: 
+Implemented a semantic theme mapping system in the global CSS (globals.css). This system automatically intercepts hardcoded light-mode colors (like white backgrounds and black text) and converts them into high-contrast dark-mode equivalents using CSS variables and !important overrides. The website now adapts instantly to the user's system theme without any manual toggling required.
+
+============================================================
+Problem 2: Excessive Page Refreshing (Leave Section)
+============================================================
+Status: RESOLVED
+How it was fixed: 
+Identified a "Reload Loop" caused by the backend server watching its own log and upload directories. Every time a file was saved, the server restarted, forcing the frontend to refresh. I updated the backend startup configuration to exclude 'logs' and 'static' directories from the file-watcher. Additionally, consolidated conflicting frontend configuration files to ensure a stable development environment.
+
+============================================================
+Problem 3: Face Recognition (Photo Bypass & Lighting)
+============================================================
+Status: RESOLVED (RE-IMPLEMENTED)
+How it was fixed: 
+Implemented a mandatory "Liveness Detection" layer using real-time Eye Aspect Ratio (EAR) tracking. The system now requires a physical BLINK to unlock the confirmation button, effectively blocking all static photo bypass attempts. Additionally, integrated a real-time lighting analyzer that provides immediate feedback (Low/Good/Harsh) to ensure the user is in optimal conditions for accurate AWS face matching.
+============================================================
+Problem 4: Non-Functional Dashboard Buttons
+============================================================
+Status: RESOLVED
+How it was fixed: 
+Linked the "Quick Attendance" and "View Reports" buttons on the employee home dashboard to their respective functional routes (/employee/attendance/signin and /employee/attendance/log). Used the Next.js Link component to ensure smooth, SPA-style navigation.
+
+============================================================
+Problem 5: Leave Application Not Working
+============================================================
+Status: RESOLVED
+How it was fixed: 
+- Frontend: Removed blocking JavaScript alerts that were "freezing" the date picker. Replaced them with non-intrusive inline validation messages.
+- Backend: Rewrote the leave validation logic to skip Sundays and Holidays during overlap checks. Added a work-day counter to properly verify requested leaves against the actual available balance in the database.
+
+
+============================================================
+REPORT END
+============================================================

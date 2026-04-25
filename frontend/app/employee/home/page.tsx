@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api';
+import Link from 'next/link';
 import { Loader2, CheckCircle, Camera, Clock, User, LogIn } from 'lucide-react';
 
 const dailyQuotes = [
@@ -87,12 +88,16 @@ export default function EmployeeHome() {
                 <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow text-white">
                     <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
                     <div className="space-y-2">
-                        <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
-                            <span className="font-medium">📍 Mark Attendance</span>
-                        </button>
-                        <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
-                            <span className="font-medium">📊 View Reports</span>
-                        </button>
+                        <Link href="/employee/attendance/signin" className="block">
+                            <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
+                                <span className="font-medium">📍 Mark Attendance</span>
+                            </button>
+                        </Link>
+                        <Link href="/employee/attendance/log" className="block">
+                            <button className="w-full bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg p-3 text-left transition-colors">
+                                <span className="font-medium">📊 View Reports</span>
+                            </button>
+                        </Link>
                     </div>
                 </div>
 

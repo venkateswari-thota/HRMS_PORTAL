@@ -39,20 +39,9 @@ function HolidaySetupForm() {
             setAllHolidays(data);
             setCalendarLoading(false);
 
-            // For Setup Form inputs
-            let formHolidays: HolidayRow[] = [{ date: '', reason: '' }];
-
-            if (selectedMonth) {
-                // Only load into form if a specific month is selected (Edit mode)
-                const filtered = data.filter((h: any) => {
-                    const d = new Date(h.date);
-                    return d.getMonth() + 1 === selectedMonth;
-                });
-
-                if (filtered.length > 0) {
-                    formHolidays = filtered.map((h: any) => ({ date: h.date, reason: h.reason }));
-                }
-            }
+            // Setup Form should ALWAYS start empty (one blank row) for Adding new entries
+            // The dashboard below displays the existing ones for reference.
+            const formHolidays: HolidayRow[] = [{ date: '', reason: '' }];
 
             setHolidays(formHolidays);
             setInitialHolidays(JSON.parse(JSON.stringify(formHolidays)));
@@ -98,19 +87,44 @@ function HolidaySetupForm() {
         try {
             const token = localStorage.getItem('admin_token');
             const validHolidays = holidays.filter(h => h.date && h.reason);
+
+            // 1. Duplicate Detection Check
+            // We only check for duplicates that AREN'T already in our initial list (to allow editing existing ones)
+            const initialDates = initialHolidays.map(h => h.date);
+            const duplicates = validHolidays.filter(h =>
+                !initialDates.includes(h.date) && // New date
+                allHolidays.some(ah => ah.date === h.date) // Already in DB
+            );
+
+            if (duplicates.length > 0) {
+                setStatusMsg(`Error: This holiday already exists (${duplicates[0].date})`);
+                // Clear fields even on error as requested by user
+                setHolidays([{ date: '', reason: '' }]);
+                // Clear error message after 3 seconds
+                setTimeout(() => setStatusMsg(''), 3000);
+                setLoading(false);
+                return;
+            }
+
+            // 2. Save to Backend
             await apiRequest('/leave/admin/holidays/setup', 'POST', { year, month, holidays: validHolidays }, token || '');
 
-            // 1. Refresh global calendar data (pass null so form stays empty)
-            fetchHolidays(year, null);
-
-            // 2. Reset month context
-            setMonth(null);
-
+            // 3. Refresh and Reset
             setStatusMsg('✅ Successfully saved!');
+
+            // Re-fetch only dashboard data
+            await fetchHolidays(year, month);
+
+            // Explicitly Reset the form to empty as requested by user
+            setHolidays([{ date: '', reason: '' }]);
+
+            // Clear status after 3 seconds
             setTimeout(() => setStatusMsg(''), 3000);
             setLoading(false);
         } catch (e: any) {
             setStatusMsg('Error: ' + e.message);
+            // Clear error message after 3 seconds
+            setTimeout(() => setStatusMsg(''), 3000);
             setLoading(false);
         }
     };
@@ -244,19 +258,17 @@ function HolidaySetupForm() {
                         ))}
                     </div>
 
-                    {/* Add Row Button - Only show if not in Monthly mode */}
-                    {!month && (
-                        <div className="flex justify-center pt-2">
-                            <button
-                                type="button"
-                                onClick={addRow}
-                                className="flex items-center gap-2 px-6 py-2.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-all border border-blue-100 active:scale-95 group"
-                            >
-                                <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
-                                Add Holiday entry
-                            </button>
-                        </div>
-                    )}
+                    {/* Add Row Button - Enable for all modes */}
+                    <div className="flex justify-center pt-2">
+                        <button
+                            type="button"
+                            onClick={addRow}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-all border border-blue-100 active:scale-95 group"
+                        >
+                            <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
+                            Add Holiday entry
+                        </button>
+                    </div>
 
                     {statusMsg && (
                         <div className={`p-4 rounded-xl text-center font-medium ${statusMsg.includes('Error') ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'}`}>

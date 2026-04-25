@@ -2,7 +2,7 @@ import boto3
 import os
 import base64
 from typing import List, Dict
-from backend.logger import log_debug
+from logger import log_debug
 
 class RekognitionService:
     def __init__(self):

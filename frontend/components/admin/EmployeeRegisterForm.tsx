@@ -254,7 +254,7 @@ export default function EmployeeRegisterForm({ onSuccess }: { onSuccess?: () => 
 
       // Send to backend
       const token = localStorage.getItem('admin_token') || '';
-      const res = await fetch('http://localhost:8000/admin/employee/register', {
+      const res = await fetch('/api/admin/employee/register', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

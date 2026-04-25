@@ -8,6 +8,7 @@ export default function LeaveApplyPage() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<'apply' | 'pending' | 'history'>('apply');
     const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
     const [statusMsg, setStatusMsg] = useState('');
 
     // Form State
@@ -61,7 +62,10 @@ export default function LeaveApplyPage() {
 
     const isNonWorkingDay = (dateStr: string) => {
         if (!dateStr) return false;
-        const date = new Date(dateStr);
+        // Standard yyyy-mm-dd parsing
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const date = new Date(y, m - 1, d); // Construct in local time
+
         // getDay() returns 0 for Sunday
         if (date.getDay() === 0) return true;
         if (holidays.includes(dateStr)) return true;
@@ -70,55 +74,43 @@ export default function LeaveApplyPage() {
 
     const isUtilized = (dateStr: string) => {
         if (!dateStr) return false;
-        // Check pending
-        const inPending = pendingLeaves.some(l => dateStr >= l.from_date && dateStr <= l.to_date);
+        // Check pending (Status is PENDING by default in LeaveRequest model)
+        const inPending = pendingLeaves.some(l =>
+            l.status === 'PENDING' && dateStr >= l.from_date && dateStr <= l.to_date
+        );
         if (inPending) return true;
-        // Check approved
-        const inApproved = historyLeaves.some(l => l.status === 'APPROVED' && dateStr >= l.from_date && dateStr <= l.to_date);
+
+        // Check approved (Status is APPROVED in LeaveApproved)
+        const inApproved = historyLeaves.some(l =>
+            l.status === 'APPROVED' && dateStr >= l.from_date && dateStr <= l.to_date
+        );
         if (inApproved) return true;
+
         return false;
     };
 
     const checkValidation = (from: string, to: string) => {
         if (!from || !to) return true;
+        const start = new Date(from);
+        const end = new Date(to);
 
-        let current = new Date(from);
-        const endDate = new Date(to);
-
-        while (current <= endDate) {
-            const dateStr = current.toISOString().split('T')[0];
-
-            // 1. Non-working day check
-            if (isNonWorkingDay(dateStr)) {
-                alert("Looks like it's already your non working day. Please pick different date(s) to apply.");
-                return false;
-            }
-
-            // 2. Utilized check
-            if (isUtilized(dateStr)) {
-                alert("This day leave is already utilized by you.");
-                return false;
-            }
-
-            current.setDate(current.getDate() + 1);
+        if (end < start) {
+            setErrorMsg("❌ 'To Date' cannot be before 'From Date'");
+            return false;
         }
+
+        // Check if range contains working days (Optional: can just let backend handle it, but good for UX)
+        setErrorMsg('');
         return true;
     };
 
     const handleDateChange = (field: 'from_date' | 'to_date', value: string) => {
         const newFormData = { ...formData, [field]: value };
-
-        // If To Date is being changed, or if From Date is changed while To Date exists
-        if (field === 'to_date' || (field === 'from_date' && newFormData.to_date)) {
-            if (newFormData.from_date && newFormData.to_date) {
-                if (!checkValidation(newFormData.from_date, newFormData.to_date)) {
-                    // If validation fails, reset the field being changed
-                    return;
-                }
-            }
-        }
-
         setFormData(newFormData);
+        
+        if (newFormData.from_date && newFormData.to_date) {
+            checkValidation(newFormData.from_date, newFormData.to_date);
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -263,10 +255,16 @@ export default function LeaveApplyPage() {
                                 {statusMsg}
                             </div>
                         )}
+                        
+                        {errorMsg && (
+                            <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium animate-in fade-in slide-in-from-top-1">
+                                {errorMsg}
+                            </div>
+                        )}
 
                         <div className="flex gap-4">
                             <button
-                                type="submit" disabled={loading}
+                                type="submit" disabled={loading || !!errorMsg}
                                 className="px-8 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50"
                             >
                                 {loading ? 'Submitting...' : 'Submit'}

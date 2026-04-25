@@ -3,7 +3,7 @@ from beanie import init_beanie
 from dotenv import load_dotenv
 import os
 
-from .models import Admin, Employee, Attendance, Request, Approved, LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday, WorkLocation
+from models import Admin, Employee, Attendance, Request, Approved, LeaveRequest, LeaveApproved, LeaveRejected, LeaveWithdrawn, LeaveBalance, Holiday, WorkLocation
 
 # Load Environment Variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))

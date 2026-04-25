@@ -14,7 +14,9 @@ import {
     Search,
     Filter,
     ChevronRight,
-    ArrowUpRight
+    ArrowUpRight,
+    Maximize2,
+    X
 } from 'lucide-react';
 
 export default function AdminApprovedPage() {
@@ -24,6 +26,7 @@ export default function AdminApprovedPage() {
     const [loading, setLoading] = useState(true);
     const [mounted, setMounted] = useState(false);
     const [selectedEmpId, setSelectedEmpId] = useState('all');
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
     const fetchData = async () => {
         try {
@@ -84,10 +87,9 @@ export default function AdminApprovedPage() {
                 </div>
 
                 {/* Filter & Detail Row */}
-                {/* Filter & Detail Row */}
                 <div className="max-w-4xl">
                     <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 p-8 space-y-4">
-                        {/* Selected Employee Display (Top Left) */}
+                        {/* Selected Employee Display */}
                         <div className="h-6 flex items-center px-1">
                             {selectedEmployee && (
                                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-300">
@@ -102,7 +104,6 @@ export default function AdminApprovedPage() {
                         </div>
 
                         <div className="flex flex-col md:flex-row items-stretch gap-4">
-                            {/* Selection Dropdown */}
                             <div className="relative group flex-1 w-full">
                                 <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none group-focus-within:text-green-500 transition-colors">
                                     <User size={20} />
@@ -124,7 +125,6 @@ export default function AdminApprovedPage() {
                                 </div>
                             </div>
 
-                            {/* Stats Cards (Right Side) */}
                             <div className="flex items-center gap-3 shrink-0">
                                 <div className="px-8 py-3 bg-green-50/50 rounded-[1.8rem] border border-green-100 flex flex-col items-center justify-center min-w-[110px] hover:bg-green-100/50 transition-colors group/stat">
                                     <p className="text-[10px] font-black text-green-400 uppercase tracking-tighter leading-none mb-1 group-hover/stat:text-green-600 transition-colors">Shown</p>
@@ -161,7 +161,7 @@ export default function AdminApprovedPage() {
                                     className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-100 shadow-sm hover:shadow-md transition-all group animate-in slide-in-from-bottom-4 duration-500"
                                     style={{ animationDelay: `${index * 30}ms` }}
                                 >
-                                    <div className="flex flex-col md:flex-row justify-between gap-6">
+                                    <div className="flex flex-col lg:flex-row justify-between gap-6">
                                         <div className="flex-1 space-y-6">
                                             {/* Top Bar */}
                                             <div className="flex items-center gap-3">
@@ -186,7 +186,7 @@ export default function AdminApprovedPage() {
                                                         <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center border border-slate-100 font-bold text-gray-400 text-xs">
                                                             {req.emp_id.slice(-2)}
                                                         </div>
-                                                        <p className="font-black text-gray-900 tracking-tight text-lg">{req.name || req.emp_id}</p>
+                                                        <p className="font-black text-gray-900 tracking-tight text-lg">{req.emp_name || req.emp_id}</p>
                                                     </div>
                                                 </div>
 
@@ -198,19 +198,21 @@ export default function AdminApprovedPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Location Match</p>
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${req.location_lat},${req.location_lng}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline bg-blue-50/30 w-fit px-3 py-1.5 rounded-xl border border-blue-50"
-                                                    >
-                                                        <MapPin size={16} />
-                                                        {req.location_lat.toFixed(4)}, {req.location_lng.toFixed(4)}
-                                                        <ArrowUpRight size={12} className="opacity-50" />
-                                                    </a>
-                                                </div>
+                                                {req.location_failure && (
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Location Match</p>
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${req.location_lat},${req.location_lng}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center gap-2 text-xs font-bold text-blue-600 hover:underline bg-blue-50/30 w-fit px-3 py-1.5 rounded-xl border border-blue-50"
+                                                        >
+                                                            <MapPin size={16} />
+                                                            {req.location_lat.toFixed(4)}, {req.location_lng.toFixed(4)}
+                                                            <ArrowUpRight size={12} className="opacity-50" />
+                                                        </a>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Reason Section */}
@@ -219,6 +221,28 @@ export default function AdminApprovedPage() {
                                                 <p className="text-sm text-gray-500 italic">"{req.reason}"</p>
                                             </div>
                                         </div>
+
+                                        {/* Image Verification */}
+                                        {req.face_failure && req.face_image && (
+                                            <div className="w-full lg:w-48 shrink-0 space-y-2">
+                                                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest px-1">Identity Verification</p>
+                                                <div
+                                                    className="relative group cursor-zoom-in rounded-[1.2rem] overflow-hidden border-4 border-white shadow-lg aspect-square lg:aspect-auto lg:h-32"
+                                                    onClick={() => setSelectedImage(req.face_image)}
+                                                >
+                                                    <img
+                                                        src={req.face_image}
+                                                        alt="Face verification"
+                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-3">
+                                                        <div className="flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/30 text-white text-[9px] font-bold">
+                                                            <Maximize2 size={10} /> Zoom
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -226,6 +250,35 @@ export default function AdminApprovedPage() {
                     )}
                 </div>
             </div>
+
+            {/* Image Zoom Modal */}
+            {selectedImage && (
+                <div
+                    className="fixed inset-0 z-[100] bg-slate-900/90 flex items-center justify-center p-6 backdrop-blur-md transition-all animate-in fade-in duration-300"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div className="relative max-w-4xl w-full">
+                        <button
+                            className="absolute -top-16 right-0 p-3 bg-white/10 hover:bg-red-500 text-white rounded-2xl border border-white/20 transition-all flex items-center gap-2 font-bold text-xs"
+                            onClick={() => setSelectedImage(null)}
+                        >
+                            <X size={20} /> CLOSE VIEW
+                        </button>
+                        <div className="bg-white p-3 rounded-[2.5rem] shadow-2xl border border-white/20 overflow-hidden transform animate-in zoom-in-95 duration-300">
+                            <img
+                                src={selectedImage}
+                                alt="Verification Full Size"
+                                className="w-full h-auto max-h-[75vh] object-contain rounded-[2rem]"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="mt-4 flex items-center justify-between px-4 pb-2">
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Approved Log Verification</p>
+                                <div className="px-3 py-1 bg-green-50 text-green-600 text-[10px] font-black rounded-lg border border-green-100 uppercase tracking-tighter">Archived Image</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
